@@ -72,7 +72,7 @@ if not result["enough_data"]:
 s = result["summary"]
 
 # KPIs
-st.markdown('<div class="sec">Forecast Summary</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Forecast Summary</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 for col, label, val in [
     (c1, f"Forecast Total ({days_ahead}d)", f"₱{s['total_forecast']:,.2f}"),
@@ -87,7 +87,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.divider()
 
 # Main forecast chart
-st.markdown(f'<div class="sec">Historical vs {days_ahead}-Day Forecast</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Historical vs {days_ahead}-Day Forecast</div>', unsafe_allow_html=True)
+
 
 hist = result["historical"].copy()
 hist["date"] = pd.to_datetime(hist["date"])
@@ -124,7 +125,8 @@ st.plotly_chart(fig, use_container_width=True)
 st.divider()
 
 # Monthly breakdown using go.Bar instead of px.bar to avoid datetime axis bug
-st.markdown('<div class="sec">Predicted Monthly Breakdown</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Predicted Monthl Breakdown</div>', unsafe_allow_html=True)
+
 
 fore["month"] = fore["date"].dt.strftime("%Y-%m")
 monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
