@@ -17,8 +17,8 @@ init_db()
 
 # ── Define all pages ──────────────────────────────────────────────────────────
 # ❌ Current - login is default
-login_page    = st.Page("pages/login.py",         title="Login",      icon="🔑", default=True)
-booking_page  = st.Page("pages/0_Book_Now.py",    title="Book Now",   icon="🗓️")
+login_page    = st.Page("pages/login.py",         title="Login",      icon="🔑")
+booking_page  = st.Page("pages/0_Book_Now.py",    title="Book Now",   icon="🗓️", default=True)
 dashboard     = st.Page("pages/1_Dashboard.py",   title="Dashboard",  icon="📊")
 bookings      = st.Page("pages/2_Bookings.py",    title="Bookings",   icon="📅")
 products      = st.Page("pages/3_Products.py",    title="Products",   icon="🛍️")
