@@ -137,7 +137,7 @@ if st.session_state.get("user"):
     st.stop()
 
 # ── Login / Register Tabs ──────────────────────────────────────────────────────
-tab_login, tab_register = st.tabs(["  🔑  Admin  ", "  ✏️  Create Account  "])
+tab_login, tab_register = st.tabs(["  🔑  Login  ", "  ✏️  Create Account  "])
 
 with tab_login:
     st.markdown("<br>", unsafe_allow_html=True)
