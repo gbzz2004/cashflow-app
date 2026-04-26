@@ -1,7 +1,6 @@
 import streamlit as st
 from auth import login_user, register_user
 
-st.set_page_config(page_title="CashFlow Login", page_icon="💰", layout="centered")
 
 st.markdown("""
 <style>
