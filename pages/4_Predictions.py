@@ -106,7 +106,7 @@ st.divider()
 # Monthly breakdown using go.Bar instead of px.bar to avoid datetime axis bug
 st.markdown('<div class="sec">Predicted Monthly Breakdown</div>', unsafe_allow_html=True)
 
-fore["month"] = fore["date"].dt.strftime("%Y-%m")
+fore["month"] = fore["date"].dt.to_period("M").astype(str)
 monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
 monthly_fore = monthly_fore.sort_values("month")
 
