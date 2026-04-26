@@ -75,7 +75,7 @@ with st.expander("➕ Add New Product / Service", expanded=False):
                 st.rerun()
 
 st.divider()
-st.markdown('<div class="sec">Your Products</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Your Products</div>', unsafe_allow_html=True)
 
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
 
