@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, relationship, joinedload
 from datetime import datetime
 
 # Uses DATABASE_URL env var on Render, falls back to local SQLite
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cashflow.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////tmp/cashflow.db")
 
 # Render gives postgres:// but SQLAlchemy needs postgresql://
 if DATABASE_URL.startswith("postgres://"):
