@@ -233,8 +233,8 @@ else:
     with r1:
         st.markdown(f"""
         <div class="rec-card" style="background:#f0f9ff;border:1px solid #bae6fd;">
-            <div class="rec-title" style="color:inherit;">🏦 Savings & Emergency Fund</div>
-            <div class="rec-body" style="color:inherit;">
+            <div style="font-weight:700;font-size:0.95rem;margin-bottom:8px;color:#1a1a2e;">🏦 Savings & Emergency Fund</div>
+            <div style="font-size:0.88rem;line-height:1.7;color:#1a1a2e;">
                 • Save <strong>₱{recommended_savings:,.2f}</strong> — 20% of total income<br>
                 • Emergency fund target: <strong>₱{emergency_fund:,.2f}</strong> (3-month reserve)<br>
                 • Always save <em>before</em> calculating your spending budget<br>
