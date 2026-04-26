@@ -115,7 +115,7 @@ with cr:
 st.divider()
 
 # ── Forecast ───────────────────────────────────────────────────────────────────
-st.markdown('<div class="sec">30-Day Forecast</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">30-Day Forecast</div>', unsafe_allow_html=True)
 result = predict_revenue(bookings, days_ahead=30)
 
 if result["enough_data"]:
