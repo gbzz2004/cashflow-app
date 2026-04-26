@@ -93,7 +93,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.divider()
 
 # ── Revenue by Product ─────────────────────────────────────────────────────────
-st.markdown('<div class="sec">Revenue by Service</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Revenue by Service</div>', unsafe_allow_html=True)
 if paid_f:
     by_product = {}
     for b in paid_f:
@@ -114,7 +114,7 @@ else:
 st.divider()
 
 # ── Booking Detail Table ───────────────────────────────────────────────────────
-st.markdown('<div class="sec">Booking Detail</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Booking Detail</div>', unsafe_allow_html=True)
 pay_icon = {"paid": "🟢", "unpaid": "🟡", "failed": "🔴"}
 if filtered:
     rows = [{
@@ -130,7 +130,7 @@ if filtered:
     st.dataframe(df, use_container_width=True, hide_index=True)
 
     st.divider()
-    st.markdown('<div class="sec">Export</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Export</div>', unsafe_allow_html=True)
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download CSV Report", data=csv,
                        file_name=f"cashflow_report_{start_date}_{end_date}.csv",
