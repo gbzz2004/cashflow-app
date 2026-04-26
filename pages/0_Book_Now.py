@@ -5,7 +5,6 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from database import SessionLocal, Booking, Product, User
 
-st.set_page_config(page_title="Book Now", page_icon="🗓️", layout="centered")
 
 # ── Pick which business to book with ─────────────────────────────────────────
 db = SessionLocal()
