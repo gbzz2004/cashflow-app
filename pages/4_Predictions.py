@@ -110,11 +110,15 @@ fore["month"] = fore["date"].dt.strftime("%Y-%m")
 monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
 monthly_fore = monthly_fore.sort_values("month")
 
+month_labels = ["Month " + m for m in monthly_fore["month"].tolist()]
+
 fig2 = go.Figure(go.Bar(
-    x=monthly_fore["month"].tolist(),
+    x=month_labels,
     y=monthly_fore["predicted_revenue"].tolist(),
     marker_color="#EF9F27",
     marker_line_width=0,
+    hovertemplate="<b>%{x}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
+))
 ))
 fig2.update_layout(
     height=300, margin=dict(t=10, b=10, l=0, r=0),
