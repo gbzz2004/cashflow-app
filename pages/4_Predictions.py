@@ -87,7 +87,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.divider()
 
 # Main forecast chart
-st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Historical vs {days_ahead}-Day Forecast</div>', unsafe_allow_html=True)
+st.markdown(f'<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Historical vs {days_ahead}-Day Forecast</div>', unsafe_allow_html=True)
 
 
 hist = result["historical"].copy()
