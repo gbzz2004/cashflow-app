@@ -16,6 +16,7 @@ st.markdown(load_css(), unsafe_allow_html=True)
 init_db()
 
 # ── Define all pages ──────────────────────────────────────────────────────────
+# ❌ Current - login is default
 login_page    = st.Page("pages/login.py",         title="Login",      icon="🔑", default=True)
 booking_page  = st.Page("pages/0_Book_Now.py",    title="Book Now",   icon="🗓️")
 dashboard     = st.Page("pages/1_Dashboard.py",   title="Dashboard",  icon="📊")
@@ -36,7 +37,8 @@ if st.session_state.get("user"):
 else:
     pg = st.navigation(
         {
-            "": [login_page, booking_page],
+            "": [booking_page],        # ← customers only see Book Now
+            "Admin": [login_page],     # ← login is tucked under Admin
         },
         expanded=True
     )
