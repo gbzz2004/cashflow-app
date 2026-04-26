@@ -98,7 +98,7 @@ st.divider()
 
 # ── Monthly Breakdown ──────────────────────────────────────────────────────────
 st.markdown('<div class="sec">Predicted Monthly Breakdown</div>', unsafe_allow_html=True)
-fore["month"] = fore["date"].dt.to_period("M").astype(str)
+fore["month"] = fore["date"].dt.strftime("%Y-%m")
 monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
 monthly_fore.columns = ["Month", "Predicted Revenue (₱)"]
 
