@@ -242,8 +242,8 @@ else:
             </div>
         </div>
         <div class="rec-card" style="background:#fff7ed;border:1px solid #fed7aa;margin-top:10px;">
-            <div class="rec-title" style="color:inherit;">⚙️ Operating Expenses</div>
-            <div class="rec-body" style="color:inherit;">
+            <div style="font-weight:700;font-size:0.95rem;margin-bottom:8px;color:#1a1a2e;">⚙️ Operating Expenses</div>
+            <div style="font-size:0.88rem;line-height:1.7;color:#1a1a2e;">
                 • OPEX ceiling: <strong>₱{recommended_opex:,.2f}</strong> (40% of income)<br>
                 • Avg booking value: <strong>₱{avg_booking:,.2f}</strong><br>
                 • Bookings analyzed: <strong>{len(all_completed)}</strong><br>
@@ -257,8 +257,8 @@ else:
                       if num_products < 3 else "Good variety — double down on your top performers.")
         st.markdown(f"""
         <div class="rec-card" style="background:#fdf4ff;border:1px solid #e9d5ff;">
-            <div class="rec-title" style="color:inherit;">📣 Marketing & Growth</div>
-            <div class="rec-body" style="color:inherit;">
+            <div style="font-weight:700;font-size:0.95rem;margin-bottom:8px;color:#1a1a2e;">📣 Marketing & Growth</div>
+            <div style="font-size:0.88rem;line-height:1.7;color:#1a1a2e;">
                 • Marketing budget: <strong>₱{recommended_marketing:,.2f}</strong> (10% of income)<br>
                 • Best performer: <strong>{best_product}</strong> — promote it more<br>
                 • Lowest earner: <strong>{worst_product}</strong> — reprice or phase out<br>
@@ -268,16 +268,16 @@ else:
         """, unsafe_allow_html=True)
 
         vol_label = "Low ✅" if volatility_pct < 30 else ("Moderate ⚠️" if volatility_pct < 60 else "High 🚨")
-        v_bg  = "#f0fdf4" if volatility_pct < 30 else ("#fefce8" if volatility_pct < 60 else "#fef2f2")
-        v_br  = "#86efac" if volatility_pct < 30 else ("#fde68a" if volatility_pct < 60 else "#fca5a5")
+        v_bg = "#f0fdf4" if volatility_pct < 30 else ("#fefce8" if volatility_pct < 60 else "#fef2f2")
+        v_br = "#86efac" if volatility_pct < 30 else ("#fde68a" if volatility_pct < 60 else "#fca5a5")
         v_txt = "#166534" if volatility_pct < 30 else ("#854d0e" if volatility_pct < 60 else "#991b1b")
         v_advice = ("Income is stable — good for planning fixed expenses." if volatility_pct < 30
                     else ("Income varies month to month — avoid large fixed commitments." if volatility_pct < 60
-                    else "High swings detected — build a larger emergency fund and avoid new debt."))
+                          else "High swings detected — build a larger emergency fund and avoid new debt."))
         st.markdown(f"""
         <div class="rec-card" style="background:{v_bg};border:1px solid {v_br};margin-top:10px;">
-            <div class="rec-title" style="color:{v_txt};">📉 Income Volatility: {vol_label}</div>
-            <div class="rec-body" style="color:{v_txt};">
+            <div style="font-weight:700;font-size:0.95rem;margin-bottom:8px;color:{v_txt};">📉 Income Volatility: {vol_label}</div>
+            <div style="font-size:0.88rem;line-height:1.7;color:{v_txt};">
                 • Volatility: <strong>{volatility_pct:.1f}%</strong> &nbsp;|&nbsp; Std dev: <strong>₱{volatility:,.2f}</strong><br>
                 • Monthly avg: <strong>₱{monthly_avg:,.2f}</strong><br>
                 • {v_advice}
