@@ -1,6 +1,8 @@
 import streamlit as st
 from database import init_db
 from auth import login_user, register_user
+from styles import load_css
+st.markdown(load_css(), unsafe_allow_html=True)
 
 init_db()
 
