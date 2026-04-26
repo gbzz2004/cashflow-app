@@ -14,18 +14,37 @@ from ml_predict import get_monthly_summary, predict_revenue
 
 st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
 
-st.markdown("""
-<style>
+st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
-.kpi { background:#fff; border:1px solid #ececec; border-radius:14px; padding:24px 26px; }
-.kpi-label { font-size:0.75rem; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; }
-.kpi-value { font-size:1.9rem; font-weight:700; color:#1a1a2e; margin:4px 0 2px; }
-.kpi-sub   { font-size:0.8rem; color:#7F77DD; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600; color:#1a1a2e; margin-bottom:12px; }
-</style>
-""", unsafe_allow_html=True)
+
+/* Force card backgrounds to use theme-aware colors */
+.kpi {
+    background: var(--background-color, #fff) !important;
+    border: 1px solid rgba(127,119,221,0.25) !important;
+    border-radius: 14px;
+    padding: 24px 26px;
+}
+.kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
+.kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
+.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
+       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
+
+/* Page header accent bar */
+.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
+.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
+                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+
+/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
+.rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
+
+/* Make Streamlit dataframes readable in dark mode */
+[data-testid="stDataFrame"] { border-radius: 10px; }
+
+/* Caption color */
+.stCaption { opacity: 0.7; }
+</style>''', unsafe_allow_html=True)
 
 user = require_login()
 show_sidebar_logout()
@@ -38,7 +57,7 @@ bookings = db.query(Booking).options(joinedload(Booking.product)).filter(Booking
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
 db.close()
 
-st.markdown(f"## 📊 {user['business_name']}")
+st.markdown(f'<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Dashboard</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">{user["business_name"]}</h2></div>', unsafe_allow_html=True)
 st.caption("Welcome back. Here's your business at a glance.")
 st.divider()
 
@@ -65,7 +84,7 @@ monthly = get_monthly_summary(bookings)
 cl, cr = st.columns([3, 2])
 
 with cl:
-    st.markdown('<div class="sec">Monthly Revenue</div>', unsafe_allow_html=True )
+    st.markdown('<div class="sec">Monthly Revenue</div>', unsafe_allow_html=True)
     if not monthly.empty:
         fig = px.bar(monthly, x="month", y="revenue", color_discrete_sequence=["#7F77DD"],
                      labels={"month": "", "revenue": "₱"})
@@ -107,7 +126,7 @@ if result["enough_data"]:
         (f2, "Predicted Daily Avg", f"₱{s['forecast_daily_avg']:,.2f}"),
         (f3, "Growth vs History",   f"{s['growth_pct']:+.1f}%"),
     ]:
-        col.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value" style="font-size:1.3rem">{val}</div></div>', unsafe_allow_html=True)
+        col.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value" style="font-size:1.3rem;">{val}</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     hist = result["historical"].copy(); hist["date"] = pd.to_datetime(hist["date"])

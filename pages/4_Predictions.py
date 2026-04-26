@@ -12,17 +12,37 @@ from ml_predict import predict_revenue
 
 st.set_page_config(page_title="Predictions", page_icon="🔮", layout="wide")
 
-st.markdown("""
-<style>
+st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
-.kpi { background:#fff; border:1px solid #ececec; border-radius:14px; padding:24px 26px; }
-.kpi-label { font-size:0.75rem; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; }
-.kpi-value { font-size:1.5rem; font-weight:700; color:#1a1a2e; margin:4px 0 2px; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600; color:#1a1a2e; margin-bottom:12px; }
-</style>
-""", unsafe_allow_html=True)
+
+/* Force card backgrounds to use theme-aware colors */
+.kpi {
+    background: var(--background-color, #fff) !important;
+    border: 1px solid rgba(127,119,221,0.25) !important;
+    border-radius: 14px;
+    padding: 24px 26px;
+}
+.kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
+.kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
+.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
+       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
+
+/* Page header accent bar */
+.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
+.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
+                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+
+/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
+.rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
+
+/* Make Streamlit dataframes readable in dark mode */
+[data-testid="stDataFrame"] { border-radius: 10px; }
+
+/* Caption color */
+.stCaption { opacity: 0.7; }
+</style>''', unsafe_allow_html=True)
 
 user = require_login()
 show_sidebar_logout()
@@ -30,7 +50,7 @@ if not user:
     st.warning("Please log in first.")
     st.stop()
 
-st.markdown("## 🔮 Revenue Prediction")
+st.markdown('<div style="border-left:4px solid #EF9F27;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#EF9F27;font-weight:600;">Machine Learning</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Revenue Prediction</h2></div>', unsafe_allow_html=True)
 st.caption("Polynomial regression on your historical booking data, powered by scikit-learn.")
 st.divider()
 
@@ -106,20 +126,16 @@ st.divider()
 # Monthly breakdown using go.Bar instead of px.bar to avoid datetime axis bug
 st.markdown('<div class="sec">Predicted Monthly Breakdown</div>', unsafe_allow_html=True)
 
-fore["month"] = fore["date"].dt.to_period("M").astype(str)
+fore["month"] = fore["date"].dt.strftime("%Y-%m")
 monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
 monthly_fore = monthly_fore.sort_values("month")
 
-month_labels = ["Month " + m for m in monthly_fore["month"].tolist()]
-
 fig2 = go.Figure(go.Bar(
-    x=month_labels,
+    x=monthly_fore["month"].tolist(),
     y=monthly_fore["predicted_revenue"].tolist(),
     marker_color="#EF9F27",
     marker_line_width=0,
-    hovertemplate="<b>%{x}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
 ))
-
 fig2.update_layout(
     height=300, margin=dict(t=10, b=10, l=0, r=0),
     plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",

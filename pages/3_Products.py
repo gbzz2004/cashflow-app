@@ -8,23 +8,37 @@ from database import SessionLocal, Product
 
 st.set_page_config(page_title="Products", page_icon="🛍️", layout="wide")
 
-st.markdown("""
-<style>
+st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600; color:#1a1a2e; margin-bottom:12px; }
-.product-card {
-    background:#fafafa; border:1px solid #ececec; border-radius:14px;
-    padding:18px 22px; margin-bottom:10px;
-    display:flex; align-items:center; justify-content:space-between;
+
+/* Force card backgrounds to use theme-aware colors */
+.kpi {
+    background: var(--background-color, #fff) !important;
+    border: 1px solid rgba(127,119,221,0.25) !important;
+    border-radius: 14px;
+    padding: 24px 26px;
 }
-.product-name { font-weight:600; font-size:1rem; color:#1a1a2e; }
-.product-desc { font-size:0.83rem; color:#aaa; margin-top:3px; }
-.product-price { font-size:1.1rem; font-weight:700; color:#7F77DD; }
-.product-stat  { font-size:0.82rem; color:#999; margin-top:2px; }
-</style>
-""", unsafe_allow_html=True)
+.kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
+.kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
+.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
+       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
+
+/* Page header accent bar */
+.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
+.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
+                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+
+/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
+.rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
+
+/* Make Streamlit dataframes readable in dark mode */
+[data-testid="stDataFrame"] { border-radius: 10px; }
+
+/* Caption color */
+.stCaption { opacity: 0.7; }
+</style>''', unsafe_allow_html=True)
 
 user = require_login()
 show_sidebar_logout()
@@ -32,7 +46,7 @@ if not user:
     st.warning("Please log in first.")
     st.stop()
 
-st.markdown("## 🛍️ Products & Services")
+st.markdown('<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Catalog</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Products & Services</h2></div>', unsafe_allow_html=True)
 st.caption("Manage your offerings and track what earns the most.")
 st.divider()
 

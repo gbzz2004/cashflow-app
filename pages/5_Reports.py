@@ -12,20 +12,37 @@ from database import SessionLocal, Booking
 
 st.set_page_config(page_title="Reports", page_icon="📄", layout="wide")
 
-st.markdown("""
-<style>
+st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
-.kpi { background:#fff; border:1px solid #ececec; border-radius:14px; padding:22px 24px; }
-.kpi-label { font-size:0.75rem; color:#aaa; text-transform:uppercase; letter-spacing:0.08em; }
-.kpi-value { font-size:1.45rem; font-weight:700; color:#1a1a2e; margin:4px 0; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600; color:#1a1a2e; margin-bottom:12px; }
-.rec-card { border-radius:14px; padding:22px 24px; margin-bottom:10px; }
-.rec-title { font-weight:700; font-size:0.95rem; margin-bottom:10px; }
-.rec-body  { font-size:0.87rem; line-height:1.85; }
-</style>
-""", unsafe_allow_html=True)
+
+/* Force card backgrounds to use theme-aware colors */
+.kpi {
+    background: var(--background-color, #fff) !important;
+    border: 1px solid rgba(127,119,221,0.25) !important;
+    border-radius: 14px;
+    padding: 24px 26px;
+}
+.kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
+.kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
+.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
+       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
+
+/* Page header accent bar */
+.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
+.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
+                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+
+/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
+.rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
+
+/* Make Streamlit dataframes readable in dark mode */
+[data-testid="stDataFrame"] { border-radius: 10px; }
+
+/* Caption color */
+.stCaption { opacity: 0.7; }
+</style>''', unsafe_allow_html=True)
 
 user = require_login()
 show_sidebar_logout()
@@ -33,7 +50,7 @@ if not user:
     st.warning("Please log in first.")
     st.stop()
 
-st.markdown("## 📄 Reports & Export")
+st.markdown('<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Analytics</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Reports & Export</h2></div>', unsafe_allow_html=True)
 st.caption("Review your booking history, export data, and get AI-powered financial recommendations.")
 st.divider()
 
@@ -126,7 +143,7 @@ else:
 # ── ML-Powered Business Recommendations ───────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 st.divider()
-st.markdown("## 🤖 AI Business Recommendations")
+st.markdown('<div style="border-left:4px solid #EF9F27;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#EF9F27;font-weight:600;">AI Powered</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Business Recommendations</h2></div>', unsafe_allow_html=True)
 st.caption("Analyzes your revenue trends, booking patterns, and product performance to give personalized financial advice.")
 
 all_completed = [b for b in bookings if b.status == "completed"]
@@ -194,7 +211,7 @@ else:
     st.markdown(f"""
     <div style="background:{t_bg};border:1.5px solid {t_br};border-radius:14px;padding:22px 24px;margin-bottom:20px;">
         <div style="font-weight:700;font-size:0.97rem;margin-bottom:5px;">{t_label} — Revenue Trend</div>
-        <div style="font-size:0.9rem;color:#374151;">{t_text}</div>
+        <div style="font-size:0.9rem;color:inherit;">{t_text}</div>
         <div style="margin-top:8px;font-size:0.82rem;color:#6b7280;">Predicted next month: <strong>₱{next_month_pred:,.2f}</strong></div>
     </div>
     """, unsafe_allow_html=True)
@@ -206,7 +223,7 @@ else:
         (k2, "📊 Estimated Profit",    f"₱{estimated_profit:,.2f}"),
         (k3, "🔁 Reinvestment Budget", f"₱{reinvestment:,.2f}"),
     ]:
-        col.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value" style="font-size:1.25rem">{val}</div></div>',
+        col.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value" style="font-size:1.25rem;">{val}</div></div>',
                      unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -216,8 +233,8 @@ else:
     with r1:
         st.markdown(f"""
         <div class="rec-card" style="background:#f0f9ff;border:1px solid #bae6fd;">
-            <div class="rec-title" style="color:#0c4a6e;">🏦 Savings & Emergency Fund</div>
-            <div class="rec-body" style="color:#0c4a6e;">
+            <div class="rec-title" style="color:inherit;">🏦 Savings & Emergency Fund</div>
+            <div class="rec-body" style="color:inherit;">
                 • Save <strong>₱{recommended_savings:,.2f}</strong> — 20% of total income<br>
                 • Emergency fund target: <strong>₱{emergency_fund:,.2f}</strong> (3-month reserve)<br>
                 • Always save <em>before</em> calculating your spending budget<br>
@@ -225,8 +242,8 @@ else:
             </div>
         </div>
         <div class="rec-card" style="background:#fff7ed;border:1px solid #fed7aa;margin-top:10px;">
-            <div class="rec-title" style="color:#7c2d12;">⚙️ Operating Expenses</div>
-            <div class="rec-body" style="color:#7c2d12;">
+            <div class="rec-title" style="color:inherit;">⚙️ Operating Expenses</div>
+            <div class="rec-body" style="color:inherit;">
                 • OPEX ceiling: <strong>₱{recommended_opex:,.2f}</strong> (40% of income)<br>
                 • Avg booking value: <strong>₱{avg_booking:,.2f}</strong><br>
                 • Bookings analyzed: <strong>{len(all_completed)}</strong><br>
@@ -240,8 +257,8 @@ else:
                       if num_products < 3 else "Good variety — double down on your top performers.")
         st.markdown(f"""
         <div class="rec-card" style="background:#fdf4ff;border:1px solid #e9d5ff;">
-            <div class="rec-title" style="color:#4a1d96;">📣 Marketing & Growth</div>
-            <div class="rec-body" style="color:#4a1d96;">
+            <div class="rec-title" style="color:inherit;">📣 Marketing & Growth</div>
+            <div class="rec-body" style="color:inherit;">
                 • Marketing budget: <strong>₱{recommended_marketing:,.2f}</strong> (10% of income)<br>
                 • Best performer: <strong>{best_product}</strong> — promote it more<br>
                 • Lowest earner: <strong>{worst_product}</strong> — reprice or phase out<br>
