@@ -84,7 +84,7 @@ monthly = get_monthly_summary(bookings)
 cl, cr = st.columns([3, 2])
 
 with cl:
-    st.markdown('<div class="sec">Monthly Revenue</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Monthly Revenue</div>', unsafe_allow_html=True)
     if not monthly.empty:
         fig = px.bar(monthly, x="month", y="revenue", color_discrete_sequence=["#7F77DD"],
                      labels={"month": "", "revenue": "₱"})
@@ -149,7 +149,7 @@ else:
 st.divider()
 
 # ── Recent Bookings ─────────────────────────────────────────────────────────────
-st.markdown('<div class="sec">Recent Bookings</div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Recent Bookings</div>', unsafe_allow_html=True)
 if bookings:
     recent = sorted(bookings, key=lambda b: b.booking_date, reverse=True)[:8]
     rows = [{
