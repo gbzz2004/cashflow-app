@@ -152,5 +152,21 @@ hr {
 [data-testid="stMetricValue"] {
     color: #4F8EF7 !important;
 }
+
+/* Fix Reports page card text */
+.rec-card, .rec-card * {
+    color: #1a1a2e !important;
+}
+.rec-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+    color: #1a1a2e !important;
+}
+.rec-body {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #1a1a2e !important;
+}
 </style>
 """
