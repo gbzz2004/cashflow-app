@@ -119,7 +119,7 @@ fig2 = go.Figure(go.Bar(
     marker_line_width=0,
     hovertemplate="<b>%{x}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
 ))
-))
+
 fig2.update_layout(
     height=300, margin=dict(t=10, b=10, l=0, r=0),
     plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
