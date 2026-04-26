@@ -288,7 +288,7 @@ else:
     # ── Budget pie ─────────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
-        '<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Your Products</div>',
+        '<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Recommended Budget Allocation</div>',
         unsafe_allow_html=True)
     buffer = max(0, total_income - recommended_savings - recommended_opex - recommended_marketing - reinvestment)
     alloc_df = pd.DataFrame([
