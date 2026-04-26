@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -52,7 +51,7 @@ if not result["enough_data"]:
 
 s = result["summary"]
 
-# ── KPIs ───────────────────────────────────────────────────────────────────────
+# KPIs
 st.markdown('<div class="sec">Forecast Summary</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 for col, label, val in [
@@ -67,52 +66,66 @@ for col, label, val in [
 st.markdown("<br>", unsafe_allow_html=True)
 st.divider()
 
-# ── Main Chart ─────────────────────────────────────────────────────────────────
+# Main forecast chart
 st.markdown(f'<div class="sec">Historical vs {days_ahead}-Day Forecast</div>', unsafe_allow_html=True)
 
-hist = result["historical"].copy(); hist["date"] = pd.to_datetime(hist["date"])
-fore = result["forecast"].copy();   fore["date"] = pd.to_datetime(fore["date"])
+hist = result["historical"].copy()
+hist["date"] = pd.to_datetime(hist["date"])
+fore = result["forecast"].copy()
+fore["date"] = pd.to_datetime(fore["date"])
 
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=hist["date"], y=hist["revenue"], name="Historical",
-                         mode="lines+markers", line=dict(color="#7F77DD", width=2),
-                         marker=dict(size=3)))
-fig.add_trace(go.Scatter(x=fore["date"], y=fore["predicted_revenue"],
-                         name=f"{days_ahead}-day forecast", mode="lines",
-                         line=dict(color="#EF9F27", width=2, dash="dash"),
-                         fill="tozeroy", fillcolor="rgba(239,159,39,0.06)"))
-today_str = str(hist["date"].max())[:10]
+fig.add_trace(go.Scatter(
+    x=hist["date"], y=hist["revenue"], name="Historical",
+    mode="lines+markers", line=dict(color="#7F77DD", width=2), marker=dict(size=3)
+))
+fig.add_trace(go.Scatter(
+    x=fore["date"], y=fore["predicted_revenue"],
+    name=f"{days_ahead}-day forecast", mode="lines",
+    line=dict(color="#EF9F27", width=2, dash="dash"),
+    fill="tozeroy", fillcolor="rgba(239,159,39,0.06)"
+))
+today_str = hist["date"].max().strftime("%Y-%m-%d")
 fig.add_shape(type="line", x0=today_str, x1=today_str, y0=0, y1=1,
               xref="x", yref="paper", line=dict(color="#ccc", dash="dot", width=1))
 fig.add_annotation(x=today_str, y=1, xref="x", yref="paper",
                    text="Today", showarrow=False,
                    font=dict(color="#aaa", size=11), xanchor="left", yanchor="top")
-fig.update_layout(height=380, margin=dict(t=10,b=10,l=0,r=0),
-                  plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                  legend=dict(orientation="h", y=1.2, font=dict(size=12)),
-                  xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
-                  hovermode="x unified")
+fig.update_layout(
+    height=380, margin=dict(t=10, b=10, l=0, r=0),
+    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    legend=dict(orientation="h", y=1.2, font=dict(size=12)),
+    xaxis=dict(showgrid=False),
+    yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
+    hovermode="x unified"
+)
 st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# ── Monthly Breakdown ──────────────────────────────────────────────────────────
+# Monthly breakdown using go.Bar instead of px.bar to avoid datetime axis bug
 st.markdown('<div class="sec">Predicted Monthly Breakdown</div>', unsafe_allow_html=True)
+
 fore["month"] = fore["date"].dt.strftime("%Y-%m")
 monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
-monthly_fore.columns = ["Month", "Predicted Revenue (₱)"]
+monthly_fore = monthly_fore.sort_values("month")
 
-fig2 = px.bar(monthly_fore, x="Month", y="Predicted Revenue (₱)",
-              color_discrete_sequence=["#EF9F27"],
-              category_orders={"Month": sorted(monthly_fore["Month"].tolist())})
-fig2.update_layout(height=300, margin=dict(t=10,b=10,l=0,r=0),
-                   plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                   xaxis=dict(showgrid=False, type="category"), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
-                   font=dict(size=12), showlegend=False)
-fig2.update_traces(marker_cornerradius=4, marker_line_width=0)
+fig2 = go.Figure(go.Bar(
+    x=monthly_fore["month"].tolist(),
+    y=monthly_fore["predicted_revenue"].tolist(),
+    marker_color="#EF9F27",
+    marker_line_width=0,
+))
+fig2.update_layout(
+    height=300, margin=dict(t=10, b=10, l=0, r=0),
+    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+    xaxis=dict(showgrid=False, type="category"),
+    yaxis=dict(showgrid=True, gridcolor="#f5f5f5", title="₱"),
+    font=dict(size=12), showlegend=False
+)
 st.plotly_chart(fig2, use_container_width=True)
 
-# ── Forecast Table & Model Info ────────────────────────────────────────────────
+# Forecast table
 with st.expander("📋 Full forecast table"):
     display = fore[["date", "predicted_revenue"]].copy()
     display.columns = ["Date", "Predicted Revenue (₱)"]
