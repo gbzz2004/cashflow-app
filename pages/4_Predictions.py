@@ -103,10 +103,11 @@ monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
 monthly_fore.columns = ["Month", "Predicted Revenue (₱)"]
 
 fig2 = px.bar(monthly_fore, x="Month", y="Predicted Revenue (₱)",
-              color_discrete_sequence=["#EF9F27"])
+              color_discrete_sequence=["#EF9F27"],
+              category_orders={"Month": sorted(monthly_fore["Month"].tolist())})
 fig2.update_layout(height=300, margin=dict(t=10,b=10,l=0,r=0),
                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                   xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
+                   xaxis=dict(showgrid=False, type="category"), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
                    font=dict(size=12), showlegend=False)
 fig2.update_traces(marker_cornerradius=4, marker_line_width=0)
 st.plotly_chart(fig2, use_container_width=True)
