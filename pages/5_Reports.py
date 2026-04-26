@@ -202,7 +202,7 @@ else:
         t_label, t_bg, t_br = "📈 Growing",  "#dcfce7", "#86efac"
         t_text = f"Revenue is trending **upward** by ₱{trend_slope:,.2f}/month. Keep momentum — promote your best service and reinvest in marketing."
     elif trend_slope < 0:
-        t_label, t_bg, t_br = "📉 Declining","#1a1a2e", "#1a1a2e"
+        t_label, t_bg, t_br = "📉 Declining","#1a1a2e", "#fca5a5"
         t_text = f"Revenue is **declining** by ₱{abs(trend_slope):,.2f}/month. Consider promotions, new services, or re-engaging past customers."
     else:
         t_label, t_bg, t_br = "➡️ Stable",   "#fefce8", "#fde68a"
