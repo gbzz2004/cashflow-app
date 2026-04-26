@@ -1,0 +1,8 @@
+streamlit==1.35.0
+pandas==2.2.2
+scikit-learn==1.5.0
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+plotly==5.22.0
+python-dotenv==1.0.1
+bcrypt==4.1.3
