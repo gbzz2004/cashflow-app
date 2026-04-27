@@ -92,26 +92,7 @@ for col, label, val in [
 st.markdown("<br>", unsafe_allow_html=True)
 st.divider()
 
-# ── Revenue by Product ─────────────────────────────────────────────────────────
-st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Revenue by Service</div>', unsafe_allow_html=True)
-if paid_f:
-    by_product = {}
-    for b in paid_f:
-        pname = b.product.name if b.product else "Unknown"
-        by_product[pname] = by_product.get(pname, 0) + b.amount
-    prod_df = pd.DataFrame(list(by_product.items()), columns=["Product", "Revenue"]).sort_values("Revenue", ascending=False)
-    fig = px.bar(prod_df, x="Product", y="Revenue", color_discrete_sequence=["#7F77DD"],
-                 labels={"Product": "", "Revenue": "₱"})
-    fig.update_layout(height=320, margin=dict(t=10,b=10,l=0,r=0),
-                      plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                      xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
-                      font=dict(size=12), showlegend=False)
-    fig.update_traces(marker_cornerradius=4, marker_line_width=0)
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info("No paid bookings in this date range.")
 
-st.divider()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ── Prepare AI recommendation data (used in both full-width and column layout)
@@ -278,42 +259,62 @@ def render_ai_recommendations():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── Two-column bottom layout:
-#    Left  → Booking Detail table + Export
-#    Right → AI Business Recommendations
+# ── Row 1: Revenue by Service (left) | AI Business Recommendations (right)
 # ══════════════════════════════════════════════════════════════════════════════
-col_left, col_right = st.columns([1, 1], gap="large")
+col_chart, col_ai = st.columns([1, 1], gap="large")
 
-with col_left:
-    # ── Booking Detail Table ───────────────────────────────────────────────────
-    st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Booking Detail</div>', unsafe_allow_html=True)
-    if filtered:
-        rows = [{
-            "Date":       b.booking_date.strftime("%b %d, %Y"),
-            "Customer":   b.customer_name,
-            "Service":    b.product.name if b.product else "—",
-            "Amount (₱)": round(b.amount, 2),
-            "Status":     b.status.capitalize(),
-            "Notes":      b.notes or ""
-        } for b in sorted(filtered, key=lambda b: b.booking_date, reverse=True)]
-
-        df = pd.DataFrame(rows)
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
-        st.divider()
-
-        # ── Export ────────────────────────────────────────────────────────────
-        st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Export</div>', unsafe_allow_html=True)
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download CSV Report", data=csv,
-                           file_name=f"cashflow_report_{start_date}_{end_date}.csv",
-                           mime="text/csv", use_container_width=True)
-        st.caption("Open in Excel or Google Sheets for further analysis.")
+with col_chart:
+    st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Revenue by Service</div>', unsafe_allow_html=True)
+    if paid_f:
+        by_product = {}
+        for b in paid_f:
+            pname = b.product.name if b.product else "Unknown"
+            by_product[pname] = by_product.get(pname, 0) + b.amount
+        prod_df = pd.DataFrame(list(by_product.items()), columns=["Product", "Revenue"]).sort_values("Revenue", ascending=False)
+        fig = px.bar(prod_df, x="Product", y="Revenue", color_discrete_sequence=["#7F77DD"],
+                     labels={"Product": "", "Revenue": "₱"})
+        fig.update_layout(height=320, margin=dict(t=10,b=10,l=0,r=0),
+                          plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                          xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
+                          font=dict(size=12), showlegend=False)
+        fig.update_traces(marker_cornerradius=4, marker_line_width=0)
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No bookings match the selected filters.")
+        st.info("No paid bookings in this date range.")
 
-with col_right:
+with col_ai:
     render_ai_recommendations()
+
+st.divider()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ── Row 2: Booking Detail table + Export — full width
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Booking Detail</div>', unsafe_allow_html=True)
+if filtered:
+    rows = [{
+        "Date":       b.booking_date.strftime("%b %d, %Y"),
+        "Customer":   b.customer_name,
+        "Service":    b.product.name if b.product else "—",
+        "Amount (₱)": round(b.amount, 2),
+        "Status":     b.status.capitalize(),
+        "Notes":      b.notes or ""
+    } for b in sorted(filtered, key=lambda b: b.booking_date, reverse=True)]
+
+    df = pd.DataFrame(rows)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # ── Export ─────────────────────────────────────────────────────────────────
+    st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Export</div>', unsafe_allow_html=True)
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button("⬇️ Download CSV Report", data=csv,
+                       file_name=f"cashflow_report_{start_date}_{end_date}.csv",
+                       mime="text/csv", use_container_width=True)
+    st.caption("Open in Excel or Google Sheets for further analysis.")
+else:
+    st.info("No bookings match the selected filters.")
 
 # ── Recommended Budget Allocation — full width ─────────────────────────────────
 if ai_ready:
