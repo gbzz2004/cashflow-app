@@ -98,7 +98,9 @@ with cl:
         st.info("No completed bookings yet.")
 
 with cr:
-    st.markdown('<div class="sec">Booking Status</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Booking Status</div>',
+        unsafe_allow_html=True)
     status_df = pd.DataFrame([
         {"Status": "Completed", "Count": len(completed)},
         {"Status": "Pending",   "Count": len(pending)},
