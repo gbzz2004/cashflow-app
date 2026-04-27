@@ -95,30 +95,49 @@ hist["date"] = pd.to_datetime(hist["date"])
 fore = result["forecast"].copy()
 fore["date"] = pd.to_datetime(fore["date"])
 
+# Group historical by month for cleaner bar chart
+hist["month"] = hist["date"].dt.strftime("%Y-%m")
+hist_monthly = hist.groupby("month")["revenue"].sum().reset_index()
+hist_monthly = hist_monthly.sort_values("month")
+
+# Group forecast by month
+fore["month"] = fore["date"].dt.strftime("%Y-%m")
+fore_monthly = fore.groupby("month")["predicted_revenue"].sum().reset_index()
+fore_monthly = fore_monthly.sort_values("month")
+
 fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=hist["date"], y=hist["revenue"], name="Historical",
-    mode="lines+markers", line=dict(color="#7F77DD", width=2), marker=dict(size=3)
+
+# Historical bars
+fig.add_trace(go.Bar(
+    x=hist_monthly["month"].tolist(),
+    y=hist_monthly["revenue"].tolist(),
+    name="Historical Revenue",
+    marker_color="#7F77DD",
+    marker_line_width=0,
+    hovertemplate="<b>%{x}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
 ))
-fig.add_trace(go.Scatter(
-    x=fore["date"], y=fore["predicted_revenue"],
-    name=f"{days_ahead}-day forecast", mode="lines",
-    line=dict(color="#EF9F27", width=2, dash="dash"),
-    fill="tozeroy", fillcolor="rgba(239,159,39,0.06)"
+
+# Forecast bars
+fig.add_trace(go.Bar(
+    x=fore_monthly["month"].tolist(),
+    y=fore_monthly["predicted_revenue"].tolist(),
+    name=f"{days_ahead}-Day Forecast",
+    marker_color="#EF9F27",
+    marker_line_width=0,
+    hovertemplate="<b>%{x}</b><br>Forecast: ₱%{y:,.2f}<extra></extra>"
 ))
-today_str = hist["date"].max().strftime("%Y-%m-%d")
-fig.add_shape(type="line", x0=today_str, x1=today_str, y0=0, y1=1,
-              xref="x", yref="paper", line=dict(color="#ccc", dash="dot", width=1))
-fig.add_annotation(x=today_str, y=1, xref="x", yref="paper",
-                   text="Today", showarrow=False,
-                   font=dict(color="#aaa", size=11), xanchor="left", yanchor="top")
+
 fig.update_layout(
-    height=380, margin=dict(t=10, b=10, l=0, r=0),
-    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-    legend=dict(orientation="h", y=1.2, font=dict(size=12)),
-    xaxis=dict(showgrid=False),
-    yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
-    hovermode="x unified"
+    height=400,
+    margin=dict(t=10, b=10, l=0, r=0),
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    legend=dict(orientation="h", y=1.1, font=dict(size=12)),
+    xaxis=dict(showgrid=False, type="category"),
+    yaxis=dict(showgrid=True, gridcolor="#f5f5f5", title="₱"),
+    barmode="group",
+    hovermode="x unified",
+    font=dict(size=12)
 )
 st.plotly_chart(fig, use_container_width=True)
 
