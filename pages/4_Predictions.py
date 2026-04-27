@@ -107,24 +107,24 @@ fore_monthly = fore_monthly.sort_values("month")
 
 fig = go.Figure()
 
-# Historical bars
+# Historical daily bars
 fig.add_trace(go.Bar(
-    x=hist_monthly["month"].tolist(),
-    y=hist_monthly["revenue"].tolist(),
+    x=hist["date"].tolist(),
+    y=hist["revenue"].tolist(),
     name="Historical Revenue",
     marker_color="#7F77DD",
     marker_line_width=0,
-    hovertemplate="<b>%{x}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
+    hovertemplate="<b>%{x|%b %d, %Y}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
 ))
 
-# Forecast bars
+# Forecast daily bars
 fig.add_trace(go.Bar(
-    x=fore_monthly["month"].tolist(),
-    y=fore_monthly["predicted_revenue"].tolist(),
+    x=fore["date"].tolist(),
+    y=fore["predicted_revenue"].tolist(),
     name=f"{days_ahead}-Day Forecast",
     marker_color="#EF9F27",
     marker_line_width=0,
-    hovertemplate="<b>%{x}</b><br>Forecast: ₱%{y:,.2f}<extra></extra>"
+    hovertemplate="<b>%{x|%b %d, %Y}</b><br>Forecast: ₱%{y:,.2f}<extra></extra>"
 ))
 
 fig.update_layout(
@@ -133,9 +133,13 @@ fig.update_layout(
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
     legend=dict(orientation="h", y=1.1, font=dict(size=12)),
-    xaxis=dict(showgrid=False, type="category"),
+    xaxis=dict(
+        showgrid=False,
+        tickformat="%b %d",   # ← shows "Apr 27" format
+        tickangle=-45,         # ← angled so dates don't overlap
+    ),
     yaxis=dict(showgrid=True, gridcolor="#f5f5f5", title="₱"),
-    barmode="group",
+    barmode="overlay",
     hovermode="x unified",
     font=dict(size=12)
 )
