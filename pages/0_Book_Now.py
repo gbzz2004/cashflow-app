@@ -5,10 +5,11 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from database import SessionLocal, Booking, Product, User
 
-
 # ── Pick which business to book with ─────────────────────────────────────────
 db = SessionLocal()
-businesses = db.query(User).all()
+
+# Only show admin businesses, not customer accounts
+businesses = db.query(User).filter(User.role == "admin").all()
 
 if not businesses:
     st.error("No businesses are registered yet.")
@@ -39,9 +40,19 @@ if not products:
 st.markdown(f"### {selected_business.business_name}")
 st.divider()
 
+# ── Check if customer is logged in ───────────────────────────────────────────
+customer = st.session_state.get("customer", None)
+if customer:
+    st.success(f"👤 Booking as **{customer['full_name']}** — your booking will be saved to your account!")
+
 # ── Booking Form ──────────────────────────────────────────────────────────────
 with st.form("client_booking_form", clear_on_submit=True):
-    customer_name = st.text_input("Your Name *")
+
+    # Pre-fill name if customer is logged in
+    customer_name = st.text_input(
+        "Your Name *",
+        value=customer["full_name"] if customer else ""
+    )
     customer_contact = st.text_input("Contact Number or Email (optional)")
 
     product_choice = st.selectbox(
@@ -80,9 +91,13 @@ with st.form("client_booking_form", clear_on_submit=True):
                 contact_note = f"Contact: {customer_contact.strip()}"
                 note_text = f"{contact_note}\n{note_text}" if note_text else contact_note
 
+            # ← Link to customer account if logged in
+            customer_id = customer["id"] if customer else None
+
             booking = Booking(
                 owner_id=selected_business.id,
                 product_id=product_choice.id,
+                customer_id=customer_id,
                 customer_name=customer_name.strip(),
                 amount=product_choice.price,
                 status=status,
@@ -92,7 +107,16 @@ with st.form("client_booking_form", clear_on_submit=True):
             db.add(booking)
             db.commit()
 
-            st.success(f"Booking confirmed for **{customer_name}**!")
+            # Save confirmation to session for customer portal
+            if customer:
+                st.session_state["last_booking"] = {
+                    "service": product_choice.name,
+                    "date": booking_date.strftime("%B %d, %Y"),
+                    "amount": product_choice.price,
+                    "status": status
+                }
+
+            st.success(f"✅ Booking confirmed for **{customer_name}**!")
             st.info(
                 f"📋 **Summary**\n\n"
                 f"- **Service:** {product_choice.name}\n"
@@ -100,6 +124,8 @@ with st.form("client_booking_form", clear_on_submit=True):
                 f"- **Amount:** ₱{product_choice.price:,.2f}\n"
                 f"- **Payment:** {'Paid ✅' if status == 'completed' else 'Pay on the day 🕐'}"
             )
+            if customer:
+                st.info("👤 This booking has been saved to your account. View it in **My Bookings**!")
 
 db.close()
 

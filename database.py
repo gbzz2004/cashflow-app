@@ -28,9 +28,10 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     business_name = Column(String)
+    role = Column(String, default="admin")  # ← NEW: "admin" or "customer"
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    bookings = relationship("Booking", back_populates="owner")
+    bookings = relationship("Booking", back_populates="owner", foreign_keys="Booking.owner_id")
     products = relationship("Product", back_populates="owner")
 
 
@@ -52,14 +53,16 @@ class Booking(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
+    customer_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # ← NEW
     customer_name = Column(String)
     amount = Column(Float)
     status = Column(String, default="completed")  # completed, pending, cancelled
     booking_date = Column(DateTime, default=datetime.utcnow)
     notes = Column(Text, nullable=True)
 
-    owner = relationship("User", back_populates="bookings")
+    owner = relationship("User", back_populates="bookings", foreign_keys=[owner_id])
     product = relationship("Product", back_populates="bookings")
+    customer = relationship("User", foreign_keys=[customer_id])  # ← NEW
 
 
 def init_db():
