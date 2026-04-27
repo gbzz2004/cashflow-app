@@ -10,14 +10,10 @@ from auth import require_login
 from database import SessionLocal, Booking
 from ml_predict import predict_revenue
 
-st.set_page_config(page_title="Predictions", page_icon="🔮", layout="wide")
-
 st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
-
-/* Force card backgrounds to use theme-aware colors */
 .kpi {
     background: var(--background-color, #fff) !important;
     border: 1px solid rgba(127,119,221,0.25) !important;
@@ -26,22 +22,16 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
-       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
-
-/* Page header accent bar */
-.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
-.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
-                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
-
-/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
-
-/* Make Streamlit dataframes readable in dark mode */
 [data-testid="stDataFrame"] { border-radius: 10px; }
-
-/* Caption color */
 .stCaption { opacity: 0.7; }
+
+/* Force full width */
+.block-container {
+    max-width: 100% !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+}
 </style>''', unsafe_allow_html=True)
 
 user = require_login()
@@ -58,9 +48,11 @@ db = SessionLocal()
 bookings = db.query(Booking).options(joinedload(Booking.product)).filter(Booking.owner_id == user["id"]).all()
 db.close()
 
-col1, _ = st.columns([1, 3])
+col1, col2, _ = st.columns([1, 1, 2])
 with col1:
     days_ahead = st.selectbox("Forecast period", [30, 60, 90], format_func=lambda d: f"{d} days")
+with col2:
+    view_mode = st.selectbox("View By", ["Daily", "Monthly", "Yearly"])
 
 result = predict_revenue(bookings, days_ahead=days_ahead)
 
@@ -71,7 +63,7 @@ if not result["enough_data"]:
 
 s = result["summary"]
 
-# KPIs
+# ── KPIs ──────────────────────────────────────────────────────────────────────
 st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Forecast Summary</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 for col, label, val in [
@@ -86,60 +78,82 @@ for col, label, val in [
 st.markdown("<br>", unsafe_allow_html=True)
 st.divider()
 
-# Main forecast chart
-st.markdown(f'<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Historical vs {days_ahead}-Day Forecast</div>', unsafe_allow_html=True)
-
+# ── Main Forecast Chart ───────────────────────────────────────────────────────
+st.markdown(f'<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Historical vs {days_ahead}-Day Forecast — {view_mode} View</div>', unsafe_allow_html=True)
 
 hist = result["historical"].copy()
 hist["date"] = pd.to_datetime(hist["date"])
 fore = result["forecast"].copy()
 fore["date"] = pd.to_datetime(fore["date"])
 
-# Group historical by month for cleaner bar chart
-hist["month"] = hist["date"].dt.strftime("%Y-%m")
-hist_monthly = hist.groupby("month")["revenue"].sum().reset_index()
-hist_monthly = hist_monthly.sort_values("month")
+# ── Aggregate based on view mode ──────────────────────────────────────────────
+if view_mode == "Daily":
+    hist_x = hist["date"].tolist()
+    hist_y = hist["revenue"].tolist()
+    fore_x = fore["date"].tolist()
+    fore_y = fore["predicted_revenue"].tolist()
+    tick_format = "%b %d"
+    tick_angle  = -45
 
-# Group forecast by month
-fore["month"] = fore["date"].dt.strftime("%Y-%m")
-fore_monthly = fore.groupby("month")["predicted_revenue"].sum().reset_index()
-fore_monthly = fore_monthly.sort_values("month")
+elif view_mode == "Monthly":
+    hist["month"]  = hist["date"].dt.strftime("%Y-%m")
+    hist_grp       = hist.groupby("month")["revenue"].sum().reset_index().sort_values("month")
+    hist_x         = hist_grp["month"].tolist()
+    hist_y         = hist_grp["revenue"].tolist()
+    fore["month"]  = fore["date"].dt.strftime("%Y-%m")
+    fore_grp       = fore.groupby("month")["predicted_revenue"].sum().reset_index().sort_values("month")
+    fore_x         = fore_grp["month"].tolist()
+    fore_y         = fore_grp["predicted_revenue"].tolist()
+    tick_format    = None
+    tick_angle     = 0
 
+elif view_mode == "Yearly":
+    hist["year"]  = hist["date"].dt.strftime("%Y")
+    hist_grp      = hist.groupby("year")["revenue"].sum().reset_index().sort_values("year")
+    hist_x        = hist_grp["year"].tolist()
+    hist_y        = hist_grp["revenue"].tolist()
+    fore["year"]  = fore["date"].dt.strftime("%Y")
+    fore_grp      = fore.groupby("year")["predicted_revenue"].sum().reset_index().sort_values("year")
+    fore_x        = fore_grp["year"].tolist()
+    fore_y        = fore_grp["predicted_revenue"].tolist()
+    tick_format   = None
+    tick_angle    = 0
+
+# ── Build Chart ───────────────────────────────────────────────────────────────
 fig = go.Figure()
 
-# Historical daily bars
 fig.add_trace(go.Bar(
-    x=hist["date"].tolist(),
-    y=hist["revenue"].tolist(),
+    x=hist_x,
+    y=hist_y,
     name="Historical Revenue",
     marker_color="#7F77DD",
     marker_line_width=0,
-    hovertemplate="<b>%{x|%b %d, %Y}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
+    hovertemplate="<b>%{x}</b><br>Revenue: ₱%{y:,.2f}<extra></extra>"
 ))
 
-# Forecast daily bars
 fig.add_trace(go.Bar(
-    x=fore["date"].tolist(),
-    y=fore["predicted_revenue"].tolist(),
+    x=fore_x,
+    y=fore_y,
     name=f"{days_ahead}-Day Forecast",
     marker_color="#EF9F27",
     marker_line_width=0,
-    hovertemplate="<b>%{x|%b %d, %Y}</b><br>Forecast: ₱%{y:,.2f}<extra></extra>"
+    hovertemplate="<b>%{x}</b><br>Forecast: ₱%{y:,.2f}<extra></extra>"
 ))
 
 fig.update_layout(
-    height=400,
+    height=420,
     margin=dict(t=10, b=10, l=0, r=0),
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
     legend=dict(orientation="h", y=1.1, font=dict(size=12)),
     xaxis=dict(
         showgrid=False,
-        tickformat="%b %d",   # ← shows "Apr 27" format
-        tickangle=-45,         # ← angled so dates don't overlap
+        type="category" if view_mode != "Daily" else "-",
+        tickformat=tick_format,
+        tickangle=tick_angle,
     ),
     yaxis=dict(showgrid=True, gridcolor="#f5f5f5", title="₱"),
-    barmode="overlay",
+    barmode="group",
     hovermode="x unified",
     font=dict(size=12)
 )
@@ -147,30 +161,7 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# Monthly breakdown using go.Bar instead of px.bar to avoid datetime axis bug
-st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Predicted Monthl Breakdown</div>', unsafe_allow_html=True)
-
-
-fore["month"] = fore["date"].dt.strftime("%Y-%m")
-monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
-monthly_fore = monthly_fore.sort_values("month")
-
-fig2 = go.Figure(go.Bar(
-    x=monthly_fore["month"].tolist(),
-    y=monthly_fore["predicted_revenue"].tolist(),
-    marker_color="#EF9F27",
-    marker_line_width=0,
-))
-fig2.update_layout(
-    height=300, margin=dict(t=10, b=10, l=0, r=0),
-    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-    xaxis=dict(showgrid=False, type="category"),
-    yaxis=dict(showgrid=True, gridcolor="#f5f5f5", title="₱"),
-    font=dict(size=12), showlegend=False
-)
-st.plotly_chart(fig2, use_container_width=True)
-
-# Forecast table
+# ── Forecast Table ────────────────────────────────────────────────────────────
 with st.expander("📋 Full forecast table"):
     display = fore[["date", "predicted_revenue"]].copy()
     display.columns = ["Date", "Predicted Revenue (₱)"]
