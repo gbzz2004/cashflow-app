@@ -274,19 +274,7 @@ def render_ai_recommendations():
         </div>
         """, unsafe_allow_html=True)
 
-    # Budget pie
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        '<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Recommended Budget Allocation</div>',
-        unsafe_allow_html=True)
-    fig_a = px.pie(alloc_df, names="Category", values="Amount", hole=0.52,
-                   color_discrete_sequence=["#7F77DD","#EF9F27","#60a5fa","#34d399","#f87171"])
-    fig_a.update_layout(height=340, margin=dict(t=10,b=10,l=0,r=0),
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        legend=dict(orientation="h", y=-0.18, font=dict(size=12)))
-    fig_a.update_traces(textinfo="percent", textfont_size=11)
-    st.plotly_chart(fig_a, use_container_width=True)
-    st.caption("⚠️ ML-generated estimates based on your booking data and standard small business financial ratios. Consult a financial advisor for major decisions.")
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -326,3 +314,18 @@ with col_left:
 
 with col_right:
     render_ai_recommendations()
+
+# ── Recommended Budget Allocation — full width ─────────────────────────────────
+if ai_ready:
+    st.divider()
+    st.markdown(
+        '<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Recommended Budget Allocation</div>',
+        unsafe_allow_html=True)
+    fig_a = px.pie(alloc_df, names="Category", values="Amount", hole=0.52,
+                   color_discrete_sequence=["#7F77DD","#EF9F27","#60a5fa","#34d399","#f87171"])
+    fig_a.update_layout(height=340, margin=dict(t=10,b=10,l=0,r=0),
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        legend=dict(orientation="h", y=-0.18, font=dict(size=12)))
+    fig_a.update_traces(textinfo="percent", textfont_size=11)
+    st.plotly_chart(fig_a, use_container_width=True)
+    st.caption("⚠️ ML-generated estimates based on your booking data and standard small business financial ratios. Consult a financial advisor for major decisions.")
