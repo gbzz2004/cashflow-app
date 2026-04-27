@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, joinedload
 from datetime import datetime
@@ -28,7 +28,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     business_name = Column(String)
-    role = Column(String, default="admin")  # ← NEW: "admin" or "customer"
+    role = Column(String, default="admin")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     bookings = relationship("Booking", back_populates="owner", foreign_keys="Booking.owner_id")
@@ -53,20 +53,44 @@ class Booking(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
-    customer_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # ← NEW
+    customer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     customer_name = Column(String)
     amount = Column(Float)
-    status = Column(String, default="completed")  # completed, pending, cancelled
+    status = Column(String, default="completed")
     booking_date = Column(DateTime, default=datetime.utcnow)
     notes = Column(Text, nullable=True)
 
     owner = relationship("User", back_populates="bookings", foreign_keys=[owner_id])
     product = relationship("Product", back_populates="bookings")
-    customer = relationship("User", foreign_keys=[customer_id])  # ← NEW
+    customer = relationship("User", foreign_keys=[customer_id])
 
 
 def init_db():
+    # Create all tables first
     Base.metadata.create_all(bind=engine)
+
+    # ── Migrations: add new columns if they don't exist ──────────────────────
+    with engine.connect() as conn:
+        # Add role column to users table
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'admin'"))
+            conn.commit()
+        except Exception:
+            pass  # Already exists
+
+        # Update existing users to have role = 'admin' if null
+        try:
+            conn.execute(text("UPDATE users SET role = 'admin' WHERE role IS NULL"))
+            conn.commit()
+        except Exception:
+            pass
+
+        # Add customer_id column to bookings table
+        try:
+            conn.execute(text("ALTER TABLE bookings ADD COLUMN customer_id INTEGER"))
+            conn.commit()
+        except Exception:
+            pass  # Already exists
 
 
 def get_db():
