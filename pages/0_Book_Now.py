@@ -187,12 +187,7 @@ with st.form("client_booking_form", clear_on_submit=True):
 
     notes = st.text_area("Special requests or notes (optional)", height=80, key="booking_notes")
 
-    pay_option = st.radio(
-        "Payment",
-        ["I'll pay on the day (no payment now)", "Mark as paid"],
-        horizontal=True,
-        key="payment_radio"
-    )
+    pay_option = "I'll pay on the day (no payment now)"
 
     st.divider()
     submitted = st.form_submit_button(
