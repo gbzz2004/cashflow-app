@@ -217,7 +217,7 @@ with st.form("client_booking_form", clear_on_submit=True):
             }
             st.session_state["show_confirm"] = True
             st.rerun()
-    notes = st.text_area("Special requests or notes (optional)", height=80)
+    notes = st.text_area("Special requests or notes (optional)", height=80, key="booking_notes")  
 
     pay_option = st.radio(
         "Payment",
