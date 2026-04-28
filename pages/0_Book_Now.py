@@ -173,7 +173,7 @@ with st.form("client_booking_form", clear_on_submit=True):
         "Your Name *",
         value=customer["full_name"] if customer else ""
     )
-    customer_contact = st.text_input("Contact Number or Email (optional)")
+    customer_contact = st.text_input("Contact Number or Email *")
 
     product_choice = st.selectbox(
         "Service *",
@@ -184,7 +184,7 @@ with st.form("client_booking_form", clear_on_submit=True):
     if product_choice and product_choice.description:
         st.caption(f"ℹ️ {product_choice.description}")
 
-    notes = st.text_area("Special requests or notes (optional)", height=80, key="booking_notes")
+    notes = st.text_area("Special requests or notes *", height=80, key="booking_notes")
 
     st.divider()
     submitted = st.form_submit_button(
@@ -195,7 +195,11 @@ with st.form("client_booking_form", clear_on_submit=True):
 
     if submitted:
         if not customer_name.strip():
-            st.error("Please enter your name.")
+            st.error("⚠️ Please enter your name.")
+        elif not customer_contact.strip():
+            st.error("⚠️ Please enter your contact number or email.")
+        elif not notes.strip():
+            st.error("⚠️ Please enter your special requests or notes.")
         elif is_fully_booked:
             st.error("❌ This date is fully booked. Please choose another date.")
         else:

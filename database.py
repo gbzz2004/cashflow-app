@@ -117,4 +117,4 @@ def get_bookings(owner_id: int):
             .all()
         )
     finally:
-        db.close()  
+        db.close()
