@@ -26,51 +26,12 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
 .sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
        color: var(--text-color, #1a1a2e); margin-bottom:12px; }
-
 .page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
 .page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
                      color: var(--text-color, #1a1a2e); font-size:1.8rem; }
-
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
 [data-testid="stDataFrame"] { border-radius: 10px; }
 .stCaption { opacity: 0.7; }
-
-/* ── Floating modal overlay ───────────────────────────────────────────────── */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(3px);
-    z-index: 9998;
-}
-.modal-box {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: var(--background-color, #ffffff);
-    border: 1px solid rgba(127,119,221,0.35);
-    border-radius: 18px;
-    padding: 36px 40px 28px;
-    z-index: 9999;
-    width: 380px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.25);
-    text-align: center;
-}
-.modal-icon { font-size: 2.4rem; margin-bottom: 10px; }
-.modal-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-color, #1a1a2e);
-    margin-bottom: 6px;
-}
-.modal-subtitle {
-    font-size: 0.875rem;
-    color: #9EA3C0;
-    margin-bottom: 24px;
-    line-height: 1.5;
-}
 </style>''', unsafe_allow_html=True)
 
 user = require_login()
@@ -78,45 +39,22 @@ if not user:
     st.warning("Please log in first.")
     st.stop()
 
-# ── Init delete state ─────────────────────────────────────────────────────────
-if "confirm_delete_product_id" not in st.session_state:
-    st.session_state["confirm_delete_product_id"] = None
-if "confirm_delete_product_name" not in st.session_state:
-    st.session_state["confirm_delete_product_name"] = None
-
-# ── Floating confirmation modal ───────────────────────────────────────────────
-if st.session_state["confirm_delete_product_id"] is not None:
-    product_name = st.session_state["confirm_delete_product_name"]
-
-    st.markdown(f"""
-    <div class="modal-overlay"></div>
-    <div class="modal-box">
-        <div class="modal-icon">🗑️</div>
-        <div class="modal-title">Delete Product?</div>
-        <div class="modal-subtitle">
-            You're about to delete <strong>{product_name}</strong>.<br>
-            This action cannot be undone.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Render buttons inside the visual modal using empty columns trick
-    spacer_l, btn_col1, btn_col2, spacer_r = st.columns([2.2, 1, 1, 2.2])
-    with btn_col1:
-        if st.button("✅ Yes, Delete", key="modal_confirm_yes", type="primary", use_container_width=True):
+# ── Delete confirmation dialog ────────────────────────────────────────────────
+@st.dialog("Confirm Delete")
+def delete_product_dialog(product_id, product_name):
+    st.warning(f"⚠️ Are you sure you want to delete **{product_name}**? This cannot be undone.")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🗑️ Yes, Delete", use_container_width=True, type="primary"):
             db = SessionLocal()
-            product = db.query(Product).filter(Product.id == st.session_state["confirm_delete_product_id"]).first()
+            product = db.query(Product).filter(Product.id == product_id).first()
             if product:
                 db.delete(product)
                 db.commit()
             db.close()
-            st.session_state["confirm_delete_product_id"] = None
-            st.session_state["confirm_delete_product_name"] = None
             st.rerun()
-    with btn_col2:
-        if st.button("❌ Cancel", key="modal_confirm_no", use_container_width=True):
-            st.session_state["confirm_delete_product_id"] = None
-            st.session_state["confirm_delete_product_name"] = None
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
             st.rerun()
 
 st.markdown('<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Catalog</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Products & Services</h2></div>', unsafe_allow_html=True)
@@ -172,9 +110,7 @@ if products:
         with c4:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🗑️", key=f"del_{p.id}", help="Delete product"):
-                st.session_state["confirm_delete_product_id"] = p.id
-                st.session_state["confirm_delete_product_name"] = p.name
-                st.rerun()
+                delete_product_dialog(p.id, p.name)
 
         st.markdown('<hr style="border:none;border-top:1px solid #f0f0f0;margin:4px 0 12px;">', unsafe_allow_html=True)
 else:
