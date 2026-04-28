@@ -8,7 +8,6 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking
-# Reset current page tracker
 from sidebar import show_sidebar_logout
 show_sidebar_logout()
 if st.session_state.get("current_page") != "":
@@ -28,12 +27,25 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
-       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
+
+/* Section titles — color:inherit lets Streamlit's theme control visibility */
+.sec-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid #7F77DD;
+    color: inherit;
+}
+
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
 [data-testid="stDataFrame"] { border-radius: 10px; }
 .stCaption { opacity: 0.7; }
 </style>''', unsafe_allow_html=True)
+
+def section_title(text):
+    st.markdown(f'<p class="sec-title">{text}</p>', unsafe_allow_html=True)
 
 user = require_login()
 if not user:
@@ -89,7 +101,7 @@ col_left, col_right = st.columns([1, 1], gap="large")
 
 # ── LEFT: Revenue by Service + Booking Detail + Export ────────────────────────
 with col_left:
-    st.markdown('<div class="sec">Revenue by Service</div>', unsafe_allow_html=True)
+    section_title("Revenue by Service")
     if paid_f:
         by_product = {}
         for b in paid_f:
@@ -108,7 +120,7 @@ with col_left:
         st.info("No completed bookings in this date range.")
 
     st.divider()
-    st.markdown('<div class="sec">Booking Detail</div>', unsafe_allow_html=True)
+    section_title("Booking Detail")
     if filtered:
         rows = [{
             "Date":       b.booking_date.strftime("%b %d, %Y"),
@@ -123,7 +135,7 @@ with col_left:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
         st.divider()
-        st.markdown('<div class="sec">Export</div>', unsafe_allow_html=True)
+        section_title("Export")
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download CSV Report", data=csv,
                            file_name=f"cashflow_report_{start_date}_{end_date}.csv",
@@ -263,7 +275,7 @@ with col_right:
         """, unsafe_allow_html=True)
 
         # Budget pie
-        st.markdown('<div class="sec" style="margin-top:8px;">Budget Allocation</div>', unsafe_allow_html=True)
+        section_title("Budget Allocation")
         buffer = max(0, total_income - recommended_savings - recommended_opex - recommended_marketing - reinvestment)
         alloc_df = pd.DataFrame([
             {"Category": "💰 Savings",      "Amount": recommended_savings},
