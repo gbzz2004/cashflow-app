@@ -24,15 +24,25 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
-       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
-.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
-.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
-                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+
+/* Section titles — color:inherit lets Streamlit's theme control visibility */
+.sec-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid #7F77DD;
+    color: inherit;
+}
+
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
 [data-testid="stDataFrame"] { border-radius: 10px; }
 .stCaption { opacity: 0.7; }
 </style>''', unsafe_allow_html=True)
+
+def section_title(text):
+    st.markdown(f'<p class="sec-title">{text}</p>', unsafe_allow_html=True)
 
 user = require_login()
 if not user:
@@ -57,7 +67,7 @@ def delete_product_dialog(product_id, product_name):
         if st.button("❌ Cancel", use_container_width=True):
             st.rerun()
 
-st.markdown('<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Catalog</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Products & Services</h2></div>', unsafe_allow_html=True)
+st.markdown('<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Catalog</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;">Products & Services</h2></div>', unsafe_allow_html=True)
 st.caption("Manage your offerings and track what earns the most.")
 st.divider()
 
@@ -86,7 +96,7 @@ with st.expander("➕ Add New Product / Service", expanded=False):
                 st.rerun()
 
 st.divider()
-st.markdown('<div class="sec">Your Products</div>', unsafe_allow_html=True)
+section_title("Your Products")
 
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
 
