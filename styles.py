@@ -47,6 +47,17 @@ section[data-testid="stSidebar"] h3 {
     color: #4F8EF7 !important;
 }
 
+/* Tighten sidebar nav item spacing */
+section[data-testid="stSidebar"] li {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+section[data-testid="stSidebar"] a {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+}
+
 /* ── Buttons ── */
 .stButton > button {
     background: linear-gradient(135deg, #4F8EF7 0%, #3B6FD4 100%) !important;

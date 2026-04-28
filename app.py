@@ -14,9 +14,9 @@ st.markdown(load_css(), unsafe_allow_html=True)
 init_db()
 
 # ── Define all pages ──────────────────────────────────────────────────────────
-login_page      = st.Page("pages/login.py",           title="Admin Login",  icon="🏢" , default=True)
+login_page      = st.Page("pages/login.py",           title="Admin Login",  icon="🏢" , default=True )
 customer_portal = st.Page("pages/customer_portal.py", title="My Bookings",  icon="👤")
-booking_page    = st.Page("pages/0_Book_Now.py",      title="    Book Now", icon="🗓️")
+booking_page = st.Page("pages/0_Book_Now.py", title="↳ Book Now", icon="🗓️")
 dashboard       = st.Page("pages/1_Dashboard.py",     title="Dashboard",    icon="📊")
 bookings        = st.Page("pages/2_Bookings.py",      title="Bookings",     icon="📅")
 products        = st.Page("pages/3_Products.py",      title="Products",     icon="🛍️")
