@@ -10,6 +10,8 @@ from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking, Product
 from ml_predict import get_monthly_summary, predict_revenue
+# Reset current page tracker
+st.session_state["current_page"] = ""
 
 st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
 

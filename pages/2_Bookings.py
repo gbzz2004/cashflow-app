@@ -7,6 +7,8 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking, Product
+# Tell app.py we're on the bookings page
+st.session_state["current_page"] = "bookings"
 
 st.set_page_config(page_title="Bookings", page_icon="📅", layout="wide")
 

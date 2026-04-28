@@ -4,6 +4,8 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from auth import require_login
 from database import SessionLocal, Product
+# Reset current page tracker
+st.session_state["current_page"] = ""
 
 st.set_page_config(page_title="Products", page_icon="🛍️", layout="wide")
 

@@ -16,7 +16,7 @@ init_db()
 # ── Define all pages ──────────────────────────────────────────────────────────
 login_page      = st.Page("pages/login.py",           title="Admin Login",  icon="🏢")
 customer_portal = st.Page("pages/customer_portal.py", title="My Bookings",  icon="👤", default=True)
-booking_page    = st.Page("pages/0_Book_Now.py",      title="↳ Book Now",     icon="🗓️")
+booking_page    = st.Page("pages/0_Book_Now.py",      title="    Book Now", icon="🗓️")
 dashboard       = st.Page("pages/1_Dashboard.py",     title="Dashboard",    icon="📊")
 bookings        = st.Page("pages/2_Bookings.py",      title="Bookings",     icon="📅")
 products        = st.Page("pages/3_Products.py",      title="Products",     icon="🛍️")
@@ -25,15 +25,24 @@ reports         = st.Page("pages/5_Reports.py",       title="Reports",      icon
 
 # ── Route based on login state ────────────────────────────────────────────────
 if st.session_state.get("user"):
-    # Admin logged in — dashboard is first so it loads by default
-    pg = st.navigation(
-        {
-            "Admin":    [dashboard, bookings, booking_page, products, predictions, reports],
-        },
-        expanded=True
-    )
+    on_bookings = st.session_state.get("current_page") == "bookings"
+
+    if on_bookings:
+        pg = st.navigation(
+            {
+                "Admin": [dashboard, bookings, booking_page, products, predictions, reports],
+            },
+            expanded=True
+        )
+    else:
+        pg = st.navigation(
+            {
+                "Admin": [dashboard, bookings, products, predictions, reports],
+            },
+            expanded=True
+        )
+
 elif st.session_state.get("customer"):
-    # Customer logged in
     pg = st.navigation(
         {
             "":           [booking_page],
@@ -42,7 +51,6 @@ elif st.session_state.get("customer"):
         expanded=True
     )
 else:
-    # Not logged in
     pg = st.navigation(
         {
             "": [customer_portal, login_page],

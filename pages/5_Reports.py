@@ -8,6 +8,8 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking
+# Reset current page tracker
+st.session_state["current_page"] = ""
 
 st.set_page_config(page_title="Reports", page_icon="📄", layout="wide")
 
