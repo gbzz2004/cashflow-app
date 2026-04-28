@@ -45,8 +45,7 @@ if st.session_state.get("user"):
 elif st.session_state.get("customer"):
     pg = st.navigation(
         {
-            "":           [booking_page],
-            "My Account": [customer_portal],
+            "My Account": [customer_portal, booking_page],
         },
         expanded=True
     )
