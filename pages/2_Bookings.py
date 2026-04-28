@@ -182,54 +182,75 @@ else:
 
         with col_status:
             current_ui    = STATUS_DISPLAY.get(b.status, b.status.capitalize())
-            new_status_ui = st.selectbox(
-                "Status",
-                STATUS_OPTIONS_UI,
-                index=STATUS_OPTIONS_UI.index(current_ui) if current_ui in STATUS_OPTIONS_UI else 0,
-                key=f"stat_{b.id}"
-            )
+            status_locked = b.status in ("completed", "cancelled")
 
-            # Changing to Approved → open downpayment dialog
-            if new_status_ui != current_ui:
-                if new_status_ui == "Approved":
-                    st.session_state["pending_approval_id"]     = b.id
-                    st.session_state["pending_approval_amount"] = b.amount
-                    st.rerun()
-                else:
-                    db2 = SessionLocal()
-                    row = db2.query(Booking).filter(Booking.id == b.id).first()
-                    if row:
-                        row.status = STATUS_DB[new_status_ui]
-                        # Clear payment fields if un-approving
-                        if new_status_ui != "Approved":
+            if status_locked:
+                # ── Status is final — show a locked badge, no dropdown ──
+                badge_color = {"completed": "#2e7d32", "cancelled": "#c62828"}.get(b.status, "#555")
+                st.markdown(
+                    f'<div style="border:1px solid {badge_color};border-radius:8px;padding:6px 12px;'
+                    f'color:{badge_color};font-weight:600;font-size:0.85rem;text-align:center;">'
+                    f'{STATUS_ICON.get(b.status, "")} {current_ui}'
+                    f'<br><span style="font-size:0.68rem;opacity:0.6;font-weight:400;">locked</span></div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                # ── Still pending — allow one status change ──
+                new_status_ui = st.selectbox(
+                    "Status",
+                    STATUS_OPTIONS_UI,
+                    index=STATUS_OPTIONS_UI.index(current_ui) if current_ui in STATUS_OPTIONS_UI else 0,
+                    key=f"stat_{b.id}"
+                )
+
+                if new_status_ui != current_ui:
+                    if new_status_ui == "Approved":
+                        st.session_state["pending_approval_id"]     = b.id
+                        st.session_state["pending_approval_amount"] = b.amount
+                        st.rerun()
+                    else:
+                        db2 = SessionLocal()
+                        row = db2.query(Booking).filter(Booking.id == b.id).first()
+                        if row:
+                            row.status            = STATUS_DB[new_status_ui]
                             row.downpayment       = None
                             row.remaining_balance = None
-                    db2.commit()
-                    db2.close()
-                    st.rerun()
+                        db2.commit()
+                        db2.close()
+                        st.rerun()
 
-            # Team assignment (only when Approved)
+            # ── Team assignment (only when Approved) ──────────────────────
             if b.status == "completed":
                 db3   = SessionLocal()
                 teams = db3.query(Team).filter(Team.owner_id == user["id"]).all()
                 db3.close()
+
                 if teams:
-                    team_options  = {t.name: t.id for t in teams}
-                    current_team  = b.team.name if b.team else None
-                    selected_team = st.selectbox(
-                        "Assign Team",
-                        ["-- Select Team --"] + list(team_options.keys()),
-                        index=list(team_options.keys()).index(current_team) + 1
-                              if current_team in team_options else 0,
-                        key=f"team_{b.id}"
-                    )
-                    if selected_team != "-- Select Team --":
-                        selected_team_id = team_options[selected_team]
-                        if not b.team or b.team.id != selected_team_id:
+                    team_options = {t.name: t.id for t in teams}
+                    current_team = b.team.name if b.team else None
+
+                    if current_team:
+                        # ── Team already assigned — locked, cannot change ──
+                        st.markdown(
+                            f'<div style="border:1px solid #7F77DD;border-radius:8px;padding:6px 12px;'
+                            f'color:#7F77DD;font-weight:600;font-size:0.85rem;text-align:center;margin-top:6px;">'
+                            f'🎬 {current_team}'
+                            f'<br><span style="font-size:0.68rem;opacity:0.6;font-weight:400;">team locked</span></div>',
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        # ── No team yet — allow one-time assignment ──
+                        selected_team = st.selectbox(
+                            "Assign Team",
+                            ["-- Select Team --"] + list(team_options.keys()),
+                            index=0,
+                            key=f"team_{b.id}"
+                        )
+                        if selected_team != "-- Select Team --":
                             db4 = SessionLocal()
                             row = db4.query(Booking).filter(Booking.id == b.id).first()
                             if row:
-                                row.team_id = selected_team_id
+                                row.team_id = team_options[selected_team]
                                 db4.commit()
                             db4.close()
                             st.rerun()
