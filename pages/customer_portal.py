@@ -61,6 +61,55 @@ if "customer" not in st.session_state:
 # ── Customer is logged in ─────────────────────────────────────────────────────
 customer = st.session_state["customer"]
 
+# ── Cancel Confirmation Dialog ────────────────────────────────────────────────
+@st.dialog("Cancel Booking")
+def cancel_booking_dialog():
+    booking_id = st.session_state.get("cancel_booking_id")
+    if not booking_id:
+        return
+
+    st.warning("⚠️ Are you sure you want to cancel this booking?")
+
+    db = SessionLocal()
+    b = db.query(Booking).options(joinedload(Booking.product)).filter(
+        Booking.id == booking_id
+    ).first()
+
+    if b:
+        st.markdown(f"""
+        <div style="background:#1A1D2E;border:1px solid #2A2D3E;border-radius:14px;padding:20px;margin:12px 0;">
+            <div style="font-size:0.9rem;line-height:2.2;color:#E8EAF6;">
+                🎯 <strong>Service:</strong> {b.product.name if b.product else 'Unknown'}<br>
+                📅 <strong>Date:</strong> {b.booking_date.strftime('%B %d, %Y')}<br>
+                💰 <strong>Amount:</strong> ₱{b.amount:,.2f}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    db.close()
+
+    st.caption("This action cannot be undone.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Yes, Cancel", use_container_width=True, type="primary"):
+            db2 = SessionLocal()
+            row = db2.query(Booking).filter(Booking.id == booking_id).first()
+            if row:
+                row.status = "cancelled"
+                db2.commit()
+            db2.close()
+            del st.session_state["cancel_booking_id"]
+            st.session_state["cancel_success"] = True
+            st.rerun()
+    with col2:
+        if st.button("❌ No, Go Back", use_container_width=True):
+            del st.session_state["cancel_booking_id"]
+            st.rerun()
+
+# ── Trigger cancel dialog ─────────────────────────────────────────────────────
+if st.session_state.get("cancel_booking_id"):
+    cancel_booking_dialog()
+
 # Header
 col1, col2 = st.columns([3, 1])
 with col1:
@@ -72,6 +121,11 @@ with col2:
         st.rerun()
 
 st.divider()
+
+# ── Cancel success message ────────────────────────────────────────────────────
+if st.session_state.get("cancel_success"):
+    st.success("✅ Booking has been cancelled.")
+    st.session_state["cancel_success"] = False
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["📋 My Bookings", "🔁 Rebook", "✅ Confirmation"])
@@ -88,6 +142,7 @@ with tab1:
     else:
         for b in my_bookings:
             status_color = {"completed": "🟢", "pending": "🟡", "cancelled": "🔴"}.get(b.status, "⚪")
+            status_label = "Approved ✅" if b.status == "completed" else b.status.capitalize()
             with st.container(border=True):
                 c1, c2, c3 = st.columns([2, 2, 1])
                 with c1:
@@ -95,13 +150,11 @@ with tab1:
                     st.caption(f"📅 {b.booking_date.strftime('%B %d, %Y')}")
                 with c2:
                     st.markdown(f"₱{b.amount:,.2f}")
-                    st.caption(f"{status_color} {b.status.capitalize()}")
+                    st.caption(f"{status_color} {status_label}")
                 with c3:
                     if b.status == "pending":
                         if st.button("Cancel", key=f"cancel_{b.id}", type="secondary"):
-                            b.status = "cancelled"
-                            db.commit()
-                            st.success("Booking cancelled.")
+                            st.session_state["cancel_booking_id"] = b.id
                             st.rerun()
     db.close()
 
@@ -119,7 +172,7 @@ with tab2:
         st.caption("Select a past booking to rebook the same service.")
         options = {f"{b.product.name if b.product else 'Unknown'} — ₱{b.amount:,.2f} ({b.booking_date.strftime('%b %d, %Y')})": b
                    for b in past_bookings}
-        choice = st.selectbox("Select booking to rebook", list(options.keys()))
+        choice  = st.selectbox("Select booking to rebook", list(options.keys()))
         selected = options[choice]
 
         new_date = st.date_input("New Date", value=date.today(), min_value=date.today())
@@ -140,8 +193,8 @@ with tab2:
             db.commit()
             st.session_state["last_booking"] = {
                 "service": selected.product.name if selected.product else "Unknown",
-                "date": new_date.strftime("%B %d, %Y"),
-                "amount": selected.amount
+                "date":    new_date.strftime("%B %d, %Y"),
+                "amount":  selected.amount
             }
             st.success("✅ Rebooked successfully!")
             st.rerun()
