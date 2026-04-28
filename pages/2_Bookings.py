@@ -59,43 +59,6 @@ st.divider()
 db = SessionLocal()
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
 
-# ── Add New Booking ────────────────────────────────────────────────────────────
-with st.expander("➕ Add New Booking", expanded=False):
-    if not products:
-        st.warning("You have no products yet. Go to **Products** to add one first.")
-    else:
-        with st.form("add_booking"):
-            col1, col2 = st.columns(2)
-            with col1:
-                customer_name  = st.text_input("Customer Name")
-                product_choice = st.selectbox("Product / Service", options=products,
-                                              format_func=lambda p: f"{p.name} (₱{p.price:,.2f})")
-                amount         = st.number_input("Amount (₱)", min_value=0.0,
-                                                 value=float(product_choice.price) if product_choice else 0.0,
-                                                 step=10.0)
-            with col2:
-                booking_date = st.date_input("Booking Date", value=datetime.today())
-                status       = st.selectbox("Status", ["pending", "completed", "cancelled"])
-                notes        = st.text_area("Notes (optional)", height=100)
-
-            if st.form_submit_button("Save Booking", use_container_width=True):
-                if not customer_name.strip():
-                    st.error("Customer name is required.")
-                else:
-                    db.add(Booking(
-                        owner_id=user["id"],
-                        product_id=product_choice.id,
-                        customer_name=customer_name.strip(),
-                        amount=amount,
-                        status=status,
-                        booking_date=datetime.combine(booking_date, datetime.min.time()),
-                        notes=notes.strip() or None
-                    ))
-                    db.commit()
-                    st.success(f"Booking saved for {customer_name.strip()}!")
-                    st.rerun()
-
-st.divider()
 
 # ── Filters ────────────────────────────────────────────────────────────────────
 st.markdown("**All Bookings**")
