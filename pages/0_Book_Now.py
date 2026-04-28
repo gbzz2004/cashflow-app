@@ -185,12 +185,13 @@ with st.form("client_booking_form", clear_on_submit=True):
     if product_choice and product_choice.description:
         st.caption(f"ℹ️ {product_choice.description}")
 
-    notes = st.text_area("Special requests or notes (optional)", height=80)
+    notes = st.text_area("Special requests or notes (optional)", height=80, key="booking_notes")
 
     pay_option = st.radio(
         "Payment",
         ["I'll pay on the day (no payment now)", "Mark as paid"],
-        horizontal=True
+        horizontal=True,
+        key="payment_radio"
     )
 
     st.divider()
@@ -198,38 +199,6 @@ with st.form("client_booking_form", clear_on_submit=True):
         "✅ Confirm Booking",
         use_container_width=True,
         disabled=is_fully_booked
-    )
-
-    if submitted:
-        if not customer_name.strip():
-            st.error("Please enter your name.")
-        elif is_fully_booked:
-            st.error("❌ This date is fully booked. Please choose another date.")
-        else:
-            st.session_state["pending_booking"] = {
-                "customer_name":    customer_name.strip(),
-                "customer_contact": customer_contact.strip(),
-                "product":          product_choice,
-                "booking_date":     booking_date,
-                "notes":            notes.strip(),
-                "pay_option":       pay_option,
-                "business":         selected_business,
-            }
-            st.session_state["show_confirm"] = True
-            st.rerun()
-    notes = st.text_area("Special requests or notes (optional)", height=80, key="booking_notes")  
-
-    pay_option = st.radio(
-        "Payment",
-        ["I'll pay on the day (no payment now)", "Mark as paid"],
-        horizontal=True
-    )
-
-    st.divider()
-    submitted = st.form_submit_button(
-        "✅ Confirm Booking",
-        use_container_width=True,
-        disabled=is_fully_booked  # ← disable button if fully booked
     )
 
     if submitted:
