@@ -239,21 +239,43 @@ else:
                             unsafe_allow_html=True
                         )
                     else:
-                        # ── No team yet — allow one-time assignment ──
-                        selected_team = st.selectbox(
-                            "Assign Team",
-                            ["-- Select Team --"] + list(team_options.keys()),
-                            index=0,
-                            key=f"team_{b.id}"
-                        )
-                        if selected_team != "-- Select Team --":
-                            db4 = SessionLocal()
-                            row = db4.query(Booking).filter(Booking.id == b.id).first()
-                            if row:
-                                row.team_id = team_options[selected_team]
-                                db4.commit()
-                            db4.close()
-                            st.rerun()
+                        # ── Find teams already assigned to another booking on the same date ──
+                        booking_date_only = b.booking_date.date() if hasattr(b.booking_date, 'date') else b.booking_date
+                        db5 = SessionLocal()
+                        same_day_bookings = db5.query(Booking).filter(
+                            Booking.owner_id == user["id"],
+                            Booking.id != b.id,
+                            Booking.team_id != None,
+                        ).all()
+                        db5.close()
+
+                        booked_team_ids = {
+                            sb.team_id for sb in same_day_bookings
+                            if (sb.booking_date.date() if hasattr(sb.booking_date, 'date') else sb.booking_date) == booking_date_only
+                        }
+
+                        available_teams = {
+                            name: tid for name, tid in team_options.items()
+                            if tid not in booked_team_ids
+                        }
+
+                        if not available_teams:
+                            st.caption("⚠️ All teams are already assigned on this date.")
+                        else:
+                            selected_team = st.selectbox(
+                                "Assign Team",
+                                ["-- Select Team --"] + list(available_teams.keys()),
+                                index=0,
+                                key=f"team_{b.id}"
+                            )
+                            if selected_team != "-- Select Team --":
+                                db4 = SessionLocal()
+                                row = db4.query(Booking).filter(Booking.id == b.id).first()
+                                if row:
+                                    row.team_id = available_teams[selected_team]
+                                    db4.commit()
+                                db4.close()
+                                st.rerun()
                 else:
                     st.caption("⚠️ No teams yet. Add teams in the Teams page.")
 
