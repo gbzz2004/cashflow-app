@@ -81,7 +81,7 @@ def cancel_booking_dialog():
             <div style="font-size:0.9rem;line-height:2.2;color:#E8EAF6;">
                 🎯 <strong>Service:</strong> {b.product.name if b.product else 'Unknown'}<br>
                 📅 <strong>Date:</strong> {b.booking_date.strftime('%B %d, %Y')}<br>
-                💰 <strong>Amount:</strong> ₱{b.amount:,.2f}
+                💰 <strong>Total Price:</strong> ₱{b.amount:,.2f}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -140,17 +140,44 @@ with tab1:
     if not my_bookings:
         st.info("You have no bookings yet. Book an appointment first!")
     else:
+        today = date.today()
         for b in my_bookings:
             status_color = {"completed": "🟢", "pending": "🟡", "cancelled": "🔴"}.get(b.status, "⚪")
             status_label = "Approved ✅" if b.status == "completed" else b.status.capitalize()
+            booking_day  = b.booking_date.date()
+            is_past      = booking_day <= today
+
             with st.container(border=True):
                 c1, c2, c3 = st.columns([2, 2, 1])
+
                 with c1:
                     st.markdown(f"**{b.product.name if b.product else 'Unknown Service'}**")
                     st.caption(f"📅 {b.booking_date.strftime('%B %d, %Y')}")
+
                 with c2:
-                    st.markdown(f"₱{b.amount:,.2f}")
+                    # ── Payment breakdown ─────────────────────────────────
+                    if b.status == "completed" and b.downpayment is not None:
+                        remaining = b.remaining_balance or 0.0
+                        st.markdown(f"💳 Downpayment: **₱{b.downpayment:,.2f}**")
+                        if remaining > 0:
+                            if is_past:
+                                st.caption("✅ Remaining balance settled on appointment day")
+                            else:
+                                st.markdown(
+                                    f"<span style='color:#f59e0b;font-weight:600;'>"
+                                    f"⏳ Balance due on day: ₱{remaining:,.2f}</span>",
+                                    unsafe_allow_html=True
+                                )
+                        else:
+                            st.caption("✅ Fully settled")
+                    elif b.status == "pending":
+                        st.markdown(f"₱{b.amount:,.2f}")
+                        st.caption("🕐 Awaiting approval — downpayment TBD")
+                    else:
+                        st.markdown(f"₱{b.amount:,.2f}")
+
                     st.caption(f"{status_color} {status_label}")
+
                 with c3:
                     if b.status == "pending":
                         if st.button("Cancel", key=f"cancel_{b.id}", type="secondary"):
@@ -170,9 +197,11 @@ with tab2:
         st.info("No past bookings to rebook from.")
     else:
         st.caption("Select a past booking to rebook the same service.")
-        options = {f"{b.product.name if b.product else 'Unknown'} — ₱{b.amount:,.2f} ({b.booking_date.strftime('%b %d, %Y')})": b
-                   for b in past_bookings}
-        choice  = st.selectbox("Select booking to rebook", list(options.keys()))
+        options = {
+            f"{b.product.name if b.product else 'Unknown'} — ₱{b.amount:,.2f} ({b.booking_date.strftime('%b %d, %Y')})": b
+            for b in past_bookings
+        }
+        choice   = st.selectbox("Select booking to rebook", list(options.keys()))
         selected = options[choice]
 
         new_date = st.date_input("New Date", value=date.today(), min_value=date.today())
@@ -186,6 +215,8 @@ with tab2:
                 customer_name=customer["full_name"],
                 amount=selected.amount,
                 status="pending",
+                downpayment=None,
+                remaining_balance=None,
                 booking_date=datetime.combine(new_date, datetime.min.time()),
                 notes=notes or None
             )
@@ -204,17 +235,19 @@ with tab2:
 with tab3:
     if "last_booking" in st.session_state:
         b = st.session_state["last_booking"]
-        st.success("✅ Booking Confirmed!")
+        st.success("✅ Booking Request Submitted!")
         st.markdown(f"""
         <div style="background:#1A1D2E;border:1px solid #2A2D3E;border-radius:16px;padding:28px;max-width:400px;">
             <div style="font-size:1.1rem;font-weight:700;color:#ffffff;margin-bottom:16px;">📋 Booking Summary</div>
             <div style="color:#9EA3C0;font-size:0.9rem;line-height:2;">
                 🎯 <strong style="color:#ffffff;">Service:</strong> {b['service']}<br>
                 📅 <strong style="color:#ffffff;">Date:</strong> {b['date']}<br>
-                💰 <strong style="color:#ffffff;">Amount:</strong> ₱{b['amount']:,.2f}<br>
-                🕐 <strong style="color:#ffffff;">Status:</strong> Pending — Pay on the day
+                💰 <strong style="color:#ffffff;">Total Price:</strong> ₱{b['amount']:,.2f}<br>
+                🕐 <strong style="color:#ffffff;">Status:</strong> Pending approval<br>
+                💳 <strong style="color:#ffffff;">Payment:</strong> Downpayment will be set once approved
             </div>
         </div>
         """, unsafe_allow_html=True)
+        st.caption("Check the **My Bookings** tab after approval to see your downpayment and remaining balance.")
     else:
         st.info("No recent booking confirmation. Book or rebook a service first!")

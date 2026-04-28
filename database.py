@@ -60,50 +60,42 @@ class Team(Base):
 
 class Booking(Base):
     __tablename__ = "bookings"
-    id            = Column(Integer, primary_key=True, index=True)
-    owner_id      = Column(Integer, ForeignKey("users.id"))
-    product_id    = Column(Integer, ForeignKey("products.id"))
-    customer_id   = Column(Integer, ForeignKey("users.id"), nullable=True)
-    team_id       = Column(Integer, ForeignKey("teams.id"), nullable=True)  # ← ADDED
-    customer_name = Column(String)
-    amount        = Column(Float)
-    status        = Column(String, default="completed")
-    booking_date  = Column(DateTime, default=datetime.utcnow)
-    notes         = Column(Text, nullable=True)
+    id                = Column(Integer, primary_key=True, index=True)
+    owner_id          = Column(Integer, ForeignKey("users.id"))
+    product_id        = Column(Integer, ForeignKey("products.id"))
+    customer_id       = Column(Integer, ForeignKey("users.id"), nullable=True)
+    team_id           = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    customer_name     = Column(String)
+    amount            = Column(Float)           # total service price
+    downpayment       = Column(Float, nullable=True)   # set by admin on approval
+    remaining_balance = Column(Float, nullable=True)   # auto-calculated; 0 once booking date passes
+    status            = Column(String, default="pending")
+    booking_date      = Column(DateTime, default=datetime.utcnow)
+    notes             = Column(Text, nullable=True)
 
     owner    = relationship("User", back_populates="bookings", foreign_keys=[owner_id])
     product  = relationship("Product", back_populates="bookings")
     customer = relationship("User", foreign_keys=[customer_id])
-    team     = relationship("Team", back_populates="bookings")  # ← ADDED
+    team     = relationship("Team", back_populates="bookings")
 
 
 def init_db():
     Base.metadata.create_all(bind=engine)
 
     with engine.connect() as conn:
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'admin'"))
-            conn.commit()
-        except Exception:
-            pass
-
-        try:
-            conn.execute(text("UPDATE users SET role = 'admin' WHERE role IS NULL"))
-            conn.commit()
-        except Exception:
-            pass
-
-        try:
-            conn.execute(text("ALTER TABLE bookings ADD COLUMN customer_id INTEGER"))
-            conn.commit()
-        except Exception:
-            pass
-
-        try:
-            conn.execute(text("ALTER TABLE bookings ADD COLUMN team_id INTEGER"))
-            conn.commit()
-        except Exception:
-            pass
+        for stmt in [
+            "ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'admin'",
+            "UPDATE users SET role = 'admin' WHERE role IS NULL",
+            "ALTER TABLE bookings ADD COLUMN customer_id INTEGER",
+            "ALTER TABLE bookings ADD COLUMN team_id INTEGER",
+            "ALTER TABLE bookings ADD COLUMN downpayment REAL",
+            "ALTER TABLE bookings ADD COLUMN remaining_balance REAL",
+        ]:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass
 
 
 def get_db():
@@ -125,4 +117,4 @@ def get_bookings(owner_id: int):
             .all()
         )
     finally:
-        db.close()
+        db.close()  

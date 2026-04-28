@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -29,8 +29,6 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
 [data-testid="stDataFrame"] { border-radius: 10px; }
 .stCaption { opacity: 0.7; }
-
-/* Force full width */
 .block-container {
     max-width: 100% !important;
     padding-left: 2rem !important;
@@ -39,10 +37,10 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 </style>''', unsafe_allow_html=True)
 
 # ── UI label mapping ──────────────────────────────────────────────────────────
-STATUS_DISPLAY  = {"completed": "Approved", "pending": "Pending", "cancelled": "Cancelled"}
-STATUS_DB       = {v: k for k, v in STATUS_DISPLAY.items()}
+STATUS_DISPLAY    = {"completed": "Approved", "pending": "Pending", "cancelled": "Cancelled"}
+STATUS_DB         = {v: k for k, v in STATUS_DISPLAY.items()}
 STATUS_OPTIONS_UI = ["Pending", "Approved", "Cancelled"]
-STATUS_ICON     = {"completed": "🟢", "pending": "🟡", "cancelled": "🔴"}
+STATUS_ICON       = {"completed": "🟢", "pending": "🟡", "cancelled": "🔴"}
 
 user = require_login()
 show_sidebar_logout()
@@ -53,6 +51,64 @@ if not user:
 st.markdown('<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Management</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Bookings</h2></div>', unsafe_allow_html=True)
 st.caption("Manage and track all your customer bookings.")
 st.divider()
+
+# ── Auto-settle remaining balance when booking date has passed ────────────────
+today = date.today()
+db_settle = SessionLocal()
+overdue = db_settle.query(Booking).filter(
+    Booking.owner_id == user["id"],
+    Booking.status == "completed",
+    Booking.remaining_balance > 0,
+).all()
+for b in overdue:
+    if b.booking_date.date() <= today:
+        b.remaining_balance = 0.0
+db_settle.commit()
+db_settle.close()
+
+# ── Downpayment dialog ────────────────────────────────────────────────────────
+@st.dialog("Set Downpayment")
+def downpayment_dialog(booking_id: int, total_amount: float):
+    st.markdown(f"**Total service price:** ₱{total_amount:,.2f}")
+    st.caption("Enter the downpayment amount the customer will pay now. The remaining balance will be collected on the day of the booking.")
+
+    dp = st.number_input(
+        "Downpayment Amount (₱)",
+        min_value=0.0,
+        max_value=float(total_amount),
+        value=min(total_amount * 0.5, total_amount),
+        step=50.0,
+        key="dp_input"
+    )
+    remaining = total_amount - dp
+    st.info(f"💰 Downpayment: **₱{dp:,.2f}** — Remaining balance on booking day: **₱{remaining:,.2f}**")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Confirm Approval", use_container_width=True, type="primary"):
+            db2 = SessionLocal()
+            row = db2.query(Booking).filter(Booking.id == booking_id).first()
+            if row:
+                row.status            = "completed"
+                row.downpayment       = dp
+                row.remaining_balance = remaining
+            db2.commit()
+            db2.close()
+            st.session_state.pop("pending_approval_id", None)
+            st.session_state.pop("pending_approval_amount", None)
+            st.rerun()
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
+            st.session_state.pop("pending_approval_id", None)
+            st.session_state.pop("pending_approval_amount", None)
+            st.rerun()
+
+# Trigger dialog if queued
+if "pending_approval_id" in st.session_state:
+    downpayment_dialog(
+        st.session_state["pending_approval_id"],
+        st.session_state["pending_approval_amount"]
+    )
 
 db = SessionLocal()
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
@@ -88,9 +144,16 @@ filtered    = sorted(filtered, key=key_fn, reverse=rev)
 if not filtered:
     st.info("No bookings found for the selected filters.")
 else:
-    completed_total = sum(b.amount for b in filtered if b.status == "completed")
-    pending_total   = sum(b.amount for b in filtered if b.status == "pending")
-    st.caption(f"Showing **{len(filtered)}** booking(s) — Approved: **₱{completed_total:,.2f}** | Pending: **₱{pending_total:,.2f}**")
+    # Summary counts downpayments as income for approved bookings
+    approved_income = sum(
+        (b.downpayment if b.downpayment is not None else b.amount)
+        for b in filtered if b.status == "completed"
+    )
+    pending_total = sum(b.amount for b in filtered if b.status == "pending")
+    st.caption(
+        f"Showing **{len(filtered)}** booking(s) — "
+        f"Approved income: **₱{approved_income:,.2f}** | Pending: **₱{pending_total:,.2f}**"
+    )
     st.markdown("<br>", unsafe_allow_html=True)
 
     for b in filtered:
@@ -99,9 +162,20 @@ else:
         with col_info:
             team_label = f"  🎬 {b.team.name}" if b.team else ""
             st.markdown(f"**#{b.id} — {b.customer_name}**{team_label}")
+
+            # Build payment line
+            if b.status == "completed" and b.downpayment is not None:
+                bal = b.remaining_balance or 0.0
+                if bal > 0:
+                    pay_info = f"  |  💳 DP: ₱{b.downpayment:,.2f}  |  ⏳ Balance due on day: ₱{bal:,.2f}"
+                else:
+                    pay_info = f"  |  💳 DP: ₱{b.downpayment:,.2f}  |  ✅ Fully settled"
+            else:
+                pay_info = f"  |  ₱{b.amount:,.2f}"
+
             st.caption(
-                f"{b.product.name if b.product else '—'}  |  "
-                f"₱{b.amount:,.2f}  |  "
+                f"{b.product.name if b.product else '—'}"
+                f"{pay_info}  |  "
                 f"{b.booking_date.strftime('%b %d, %Y')}"
                 + (f"  |  📝 {b.notes}" if b.notes else "")
             )
@@ -114,16 +188,27 @@ else:
                 index=STATUS_OPTIONS_UI.index(current_ui) if current_ui in STATUS_OPTIONS_UI else 0,
                 key=f"stat_{b.id}"
             )
-            if new_status_ui != current_ui:
-                db2 = SessionLocal()
-                row = db2.query(Booking).filter(Booking.id == b.id).first()
-                if row:
-                    row.status = STATUS_DB[new_status_ui]
-                    db2.commit()
-                db2.close()
-                st.rerun()
 
-            # ← Team assignment (only when Approved)
+            # Changing to Approved → open downpayment dialog
+            if new_status_ui != current_ui:
+                if new_status_ui == "Approved":
+                    st.session_state["pending_approval_id"]     = b.id
+                    st.session_state["pending_approval_amount"] = b.amount
+                    st.rerun()
+                else:
+                    db2 = SessionLocal()
+                    row = db2.query(Booking).filter(Booking.id == b.id).first()
+                    if row:
+                        row.status = STATUS_DB[new_status_ui]
+                        # Clear payment fields if un-approving
+                        if new_status_ui != "Approved":
+                            row.downpayment       = None
+                            row.remaining_balance = None
+                    db2.commit()
+                    db2.close()
+                    st.rerun()
+
+            # Team assignment (only when Approved)
             if b.status == "completed":
                 db3   = SessionLocal()
                 teams = db3.query(Team).filter(Team.owner_id == user["id"]).all()

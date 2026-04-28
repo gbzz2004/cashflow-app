@@ -74,8 +74,7 @@ def confirm_booking_dialog():
     if not b:
         return
 
-    notes_line    = f"📝 <strong>Notes:</strong> {b['notes']}<br>" if b['notes'] else ""
-    payment_label = "Pay on the day 🕐" if b['pay_option'] == "I'll pay on the day (no payment now)" else "Paid ✅"
+    notes_line = f"📝 <strong>Notes:</strong> {b['notes']}<br>" if b['notes'] else ""
 
     st.markdown("### 📋 Booking Summary")
     st.markdown(f"""
@@ -83,20 +82,19 @@ def confirm_booking_dialog():
         <div style="font-size:0.9rem;line-height:2.2;color:#E8EAF6;">
             👤 <strong>Name:</strong> {b['customer_name']}<br>
             🎯 <strong>Service:</strong> {b['product'].name}<br>
-            💰 <strong>Amount:</strong> ₱{b['product'].price:,.2f}<br>
+            💰 <strong>Total Price:</strong> ₱{b['product'].price:,.2f}<br>
             📅 <strong>Date:</strong> {b['booking_date'].strftime('%B %d, %Y')}<br>
-            💳 <strong>Payment:</strong> {payment_label}<br>
+            💳 <strong>Payment:</strong> Downpayment set by business upon approval 🕐<br>
             {notes_line}
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.caption("Please review your booking details before confirming.")
+    st.caption("Your booking will be reviewed by the business. Once approved, a downpayment amount will be set and the remaining balance is due on the day of your appointment.")
 
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✅ Confirm", use_container_width=True, type="primary"):
-            status    = "completed" if b["pay_option"] == "Mark as paid" else "pending"
             note_text = b["notes"]
             if b["customer_contact"]:
                 contact_note = f"Contact: {b['customer_contact']}"
@@ -111,7 +109,9 @@ def confirm_booking_dialog():
                 customer_id=customer_id,
                 customer_name=b["customer_name"],
                 amount=b["product"].price,
-                status=status,
+                status="pending",
+                downpayment=None,
+                remaining_balance=None,
                 booking_date=datetime.combine(b["booking_date"], datetime.min.time()),
                 notes=note_text or None
             )
@@ -124,7 +124,7 @@ def confirm_booking_dialog():
                     "service": b["product"].name,
                     "date":    b["booking_date"].strftime("%B %d, %Y"),
                     "amount":  b["product"].price,
-                    "status":  status
+                    "status":  "pending"
                 }
 
             del st.session_state["pending_booking"]
@@ -144,13 +144,12 @@ if st.session_state.get("show_confirm"):
 
 # ── Success message ───────────────────────────────────────────────────────────
 if st.session_state.get("booking_success"):
-    st.success("✅ Booking confirmed successfully!")
+    st.success("✅ Booking request submitted! The business will review and approve it.")
     if customer:
-        st.info("👤 This booking has been saved to your account. View it in **My Bookings**!")
+        st.info("👤 Once approved, your downpayment amount and remaining balance will appear in **My Bookings**.")
     st.session_state["booking_success"] = False
 
 # ── Booking Form ──────────────────────────────────────────────────────────────
-# ← OUTSIDE the form so it updates in real-time
 booking_date = st.date_input(
     "Preferred Date *",
     value=date.today(),
@@ -187,11 +186,9 @@ with st.form("client_booking_form", clear_on_submit=True):
 
     notes = st.text_area("Special requests or notes (optional)", height=80, key="booking_notes")
 
-    pay_option = "I'll pay on the day (no payment now)"
-
     st.divider()
     submitted = st.form_submit_button(
-        "✅ Confirm Booking",
+        "✅ Request Booking",
         use_container_width=True,
         disabled=is_fully_booked
     )
@@ -208,7 +205,6 @@ with st.form("client_booking_form", clear_on_submit=True):
                 "product":          product_choice,
                 "booking_date":     booking_date,
                 "notes":            notes.strip(),
-                "pay_option":       pay_option,
                 "business":         selected_business,
             }
             st.session_state["show_confirm"] = True
