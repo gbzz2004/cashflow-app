@@ -11,14 +11,9 @@ st.set_page_config(
     layout="centered"
 )
 
-# ── Already logged in ─────────────────────────────────────────────────────────
+# ── Already logged in → redirect to dashboard ─────────────────────────────────
 if st.session_state.get("user"):
-    st.success(f"Logged in as **{st.session_state['user']['business_name']}**")
-    if st.button("Log out"):
-        del st.session_state["user"]
-        st.rerun()
-    st.info("Use the sidebar to navigate to Dashboard, Bookings, Products, Predictions, or Reports.")
-    st.stop()
+    st.switch_page("pages/1_Dashboard.py")
 
 # ── Auth UI ───────────────────────────────────────────────────────────────────
 st.title("💰 CashFlow & Revenue Predictor")
@@ -35,8 +30,7 @@ with tab_login:
             user = login_user(username, password)
             if user:
                 st.session_state["user"] = user
-                st.success(f"Welcome back, {user['business_name']}!")
-                st.rerun()
+                st.switch_page("pages/1_Dashboard.py")
             else:
                 st.error("Invalid username or password.")
 
