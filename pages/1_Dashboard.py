@@ -68,15 +68,39 @@ st.divider()
 completed  = [b for b in bookings if b.status == "completed"]
 pending    = [b for b in bookings if b.status == "pending"]
 cancelled  = [b for b in bookings if b.status == "cancelled"]
-this_month = datetime.now().replace(day=1)
-month_completed = [b for b in completed if b.booking_date >= this_month]
+
+now = datetime.now()
+
+# Filter this month by year+month so it's never affected by time-of-day
+month_completed = [
+    b for b in completed
+    if b.booking_date.year == now.year and b.booking_date.month == now.month
+]
+
+def collected(b):
+    """
+    Return the amount actually collected for an approved booking.
+    - If a downpayment was set, we count the downpayment now plus
+      any remaining balance that has already been auto-settled (zeroed out).
+    - If no downpayment was set, fall back to the full booking amount.
+    """
+    if b.downpayment is not None:
+        remaining = b.remaining_balance or 0.0
+        # remaining_balance is zeroed after booking day passes (auto-settle in bookings page)
+        # so settled = full amount - outstanding balance
+        settled = b.amount - remaining
+        return max(b.downpayment, settled)
+    return b.amount
+
+total_revenue = sum(collected(b) for b in completed)
+month_revenue = sum(collected(b) for b in month_completed)
 
 c1, c2, c3, c4 = st.columns(4)
 for col, label, value, sub in [
-    (c1, "Total Revenue",      f"₱{sum(b.amount for b in completed):,.2f}", "completed bookings"),
-    (c2, "This Month",         f"₱{sum(b.amount for b in month_completed):,.2f}", "completed this month"),
-    (c3, "Completed Bookings", str(len(completed)), "all time"),
-    (c4, "Pending Bookings",   str(len(pending)),   "awaiting completion"),
+    (c1, "Total Revenue",      f"₱{total_revenue:,.2f}",  f"{len(completed)} completed bookings"),
+    (c2, "This Month",         f"₱{month_revenue:,.2f}",  f"{len(month_completed)} approved in {now.strftime('%B')}"),
+    (c3, "Completed Bookings", str(len(completed)),        "all time"),
+    (c4, "Pending Bookings",   str(len(pending)),          "awaiting confirmation"),
 ]:
     col.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-sub">{sub}</div></div>', unsafe_allow_html=True)
 
@@ -105,7 +129,7 @@ with cr:
     status_df = pd.DataFrame([
         {"Status": "Completed", "Count": len(completed)},
         {"Status": "Pending",   "Count": len(pending)},
-        {"Status": "Cancelled", "Count": len([b for b in bookings if b.status == "cancelled"])},
+        {"Status": "Cancelled", "Count": len(cancelled)},
     ])
     fig2 = px.pie(status_df, names="Status", values="Count", hole=0.58,
                   color_discrete_sequence=["#7F77DD", "#EF9F27", "#E24B4A"])
@@ -156,12 +180,11 @@ st.markdown('<div class="sec">Recent Bookings</div>', unsafe_allow_html=True)
 if bookings:
     recent = sorted(bookings, key=lambda b: b.booking_date, reverse=True)[:8]
     rows = [{
-        "Date":    b.booking_date.strftime("%b %d, %Y"),
-        "Customer":b.customer_name,
-        "Service": b.product.name if b.product else "—",
-        "Amount":  f"₱{b.amount:,.2f}",
-        "Status":  b.status.capitalize(),
-        
+        "Date":     b.booking_date.strftime("%b %d, %Y"),
+        "Customer": b.customer_name,
+        "Service":  b.product.name if b.product else "—",
+        "Amount":   f"₱{b.amount:,.2f}",
+        "Status":   b.status.capitalize(),
     } for b in recent]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 else:
