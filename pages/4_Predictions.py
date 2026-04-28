@@ -20,8 +20,6 @@ st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
-
-/* Force card backgrounds to use theme-aware colors */
 .kpi {
     background: var(--background-color, #fff) !important;
     border: 1px solid rgba(127,119,221,0.25) !important;
@@ -32,19 +30,11 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
 .sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
        color: var(--text-color, #1a1a2e); margin-bottom:12px; }
-
-/* Page header accent bar */
 .page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
 .page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
                      color: var(--text-color, #1a1a2e); font-size:1.8rem; }
-
-/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
-
-/* Make Streamlit dataframes readable in dark mode */
 [data-testid="stDataFrame"] { border-radius: 10px; }
-
-/* Caption color */
 .stCaption { opacity: 0.7; }
 </style>''', unsafe_allow_html=True)
 
@@ -61,9 +51,12 @@ db = SessionLocal()
 bookings = db.query(Booking).options(joinedload(Booking.product)).filter(Booking.owner_id == user["id"]).all()
 db.close()
 
-col1, _ = st.columns([1, 3])
+# ── Controls ──────────────────────────────────────────────────────────────────
+col1, col2, _ = st.columns([1, 1, 2])
 with col1:
     days_ahead = st.selectbox("Forecast period", [30, 60, 90], format_func=lambda d: f"{d} days")
+with col2:
+    granularity = st.selectbox("View by", ["Daily", "Monthly", "Yearly"])
 
 result = predict_revenue(bookings, days_ahead=days_ahead)
 
@@ -74,7 +67,7 @@ if not result["enough_data"]:
 
 s = result["summary"]
 
-# KPIs
+# ── KPIs ──────────────────────────────────────────────────────────────────────
 st.markdown('<div class="sec">Forecast Summary</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 for col, label, val in [
@@ -89,49 +82,65 @@ for col, label, val in [
 st.markdown("<br>", unsafe_allow_html=True)
 st.divider()
 
-# Main forecast chart
-st.markdown(f'<div class="sec">Historical vs {days_ahead}-Day Forecast</div>', unsafe_allow_html=True)
-
+# ── Prepare data ──────────────────────────────────────────────────────────────
 hist = result["historical"].copy()
 hist["date"] = pd.to_datetime(hist["date"])
 fore = result["forecast"].copy()
 fore["date"] = pd.to_datetime(fore["date"])
 
+def group_by_granularity(df, value_col, granularity):
+    """Aggregate a date+value dataframe by daily / monthly / yearly."""
+    df = df.copy()
+    if granularity == "Daily":
+        df["label"] = df["date"].dt.strftime("%b %d, %Y")
+    elif granularity == "Monthly":
+        df["label"] = df["date"].dt.strftime("%b %Y")
+    else:  # Yearly
+        df["label"] = df["date"].dt.strftime("%Y")
+    return df.groupby("label", sort=False)[value_col].sum().reset_index()
+
+hist_grouped = group_by_granularity(hist, "revenue",           granularity)
+fore_grouped = group_by_granularity(fore, "predicted_revenue", granularity)
+
+# ── Main forecast bar chart ───────────────────────────────────────────────────
+st.markdown(f'<div class="sec">Historical vs {days_ahead}-Day Forecast — {granularity}</div>', unsafe_allow_html=True)
+
 fig = go.Figure()
-fig.add_trace(go.Scatter(
-    x=hist["date"], y=hist["revenue"], name="Historical",
-    mode="lines+markers", line=dict(color="#7F77DD", width=2), marker=dict(size=3)
+fig.add_trace(go.Bar(
+    x=hist_grouped["label"],
+    y=hist_grouped["revenue"],
+    name="Historical",
+    marker_color="#7F77DD",
+    marker_line_width=0,
 ))
-fig.add_trace(go.Scatter(
-    x=fore["date"], y=fore["predicted_revenue"],
-    name=f"{days_ahead}-day forecast", mode="lines",
-    line=dict(color="#EF9F27", width=2, dash="dash"),
-    fill="tozeroy", fillcolor="rgba(239,159,39,0.06)"
+fig.add_trace(go.Bar(
+    x=fore_grouped["label"],
+    y=fore_grouped["predicted_revenue"],
+    name=f"{days_ahead}-day Forecast",
+    marker_color="#EF9F27",
+    marker_line_width=0,
 ))
-today_str = hist["date"].max().strftime("%Y-%m-%d")
-fig.add_shape(type="line", x0=today_str, x1=today_str, y0=0, y1=1,
-              xref="x", yref="paper", line=dict(color="#ccc", dash="dot", width=1))
-fig.add_annotation(x=today_str, y=1, xref="x", yref="paper",
-                   text="Today", showarrow=False,
-                   font=dict(color="#aaa", size=11), xanchor="left", yanchor="top")
 fig.update_layout(
-    height=380, margin=dict(t=10, b=10, l=0, r=0),
-    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-    legend=dict(orientation="h", y=1.2, font=dict(size=12)),
-    xaxis=dict(showgrid=False),
-    yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
-    hovermode="x unified"
+    height=400,
+    margin=dict(t=10, b=10, l=0, r=0),
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    legend=dict(orientation="h", y=1.15, font=dict(size=12)),
+    xaxis=dict(showgrid=False, type="category"),
+    yaxis=dict(showgrid=True, gridcolor="#f5f5f5", title="₱"),
+    barmode="group",
+    hovermode="x unified",
+    font=dict(size=12),
 )
 st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# Monthly breakdown using go.Bar instead of px.bar to avoid datetime axis bug
+# ── Predicted breakdown chart (always monthly, as a summary) ─────────────────
 st.markdown('<div class="sec">Predicted Monthly Breakdown</div>', unsafe_allow_html=True)
 
 fore["month"] = fore["date"].dt.strftime("%Y-%m")
-monthly_fore = fore.groupby("month")["predicted_revenue"].sum().reset_index()
-monthly_fore = monthly_fore.sort_values("month")
+monthly_fore  = fore.groupby("month")["predicted_revenue"].sum().reset_index().sort_values("month")
 
 fig2 = go.Figure(go.Bar(
     x=monthly_fore["month"].tolist(),
@@ -148,7 +157,7 @@ fig2.update_layout(
 )
 st.plotly_chart(fig2, use_container_width=True)
 
-# Forecast table
+# ── Forecast table ────────────────────────────────────────────────────────────
 with st.expander("📋 Full forecast table"):
     display = fore[["date", "predicted_revenue"]].copy()
     display.columns = ["Date", "Predicted Revenue (₱)"]
