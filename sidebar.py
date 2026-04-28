@@ -2,7 +2,7 @@ import streamlit as st
 
 
 def show_sidebar_logout():
-    """Call this at the top of every page to show user info + logout in sidebar."""
+    """Shows user info + logout button in sidebar."""
     user = st.session_state.get("user")
     if user:
         with st.sidebar:

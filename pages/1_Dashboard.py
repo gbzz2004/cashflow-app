@@ -7,7 +7,6 @@ import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from sqlalchemy.orm import joinedload
-from sidebar import show_sidebar_logout
 from auth import require_login
 from database import SessionLocal, Booking, Product
 from ml_predict import get_monthly_summary, predict_revenue
@@ -47,7 +46,6 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 </style>''', unsafe_allow_html=True)
 
 user = require_login()
-show_sidebar_logout()
 if not user:
     st.warning("Please log in first.")
     st.stop()
@@ -84,7 +82,7 @@ monthly = get_monthly_summary(bookings)
 cl, cr = st.columns([3, 2])
 
 with cl:
-    st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Monthly Revenue</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec">Monthly Revenue</div>', unsafe_allow_html=True)
     if not monthly.empty:
         fig = px.bar(monthly, x="month", y="revenue", color_discrete_sequence=["#7F77DD"],
                      labels={"month": "", "revenue": "₱"})
@@ -98,9 +96,7 @@ with cl:
         st.info("No completed bookings yet.")
 
 with cr:
-    st.markdown(
-        '<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Booking Status</div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="sec">Booking Status</div>', unsafe_allow_html=True)
     status_df = pd.DataFrame([
         {"Status": "Completed", "Count": len(completed)},
         {"Status": "Pending",   "Count": len(pending)},
@@ -117,7 +113,7 @@ with cr:
 st.divider()
 
 # ── Forecast ───────────────────────────────────────────────────────────────────
-st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">30-Day Forecast</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec">30-Day Forecast</div>', unsafe_allow_html=True)
 result = predict_revenue(bookings, days_ahead=30)
 
 if result["enough_data"]:
@@ -151,7 +147,7 @@ else:
 st.divider()
 
 # ── Recent Bookings ─────────────────────────────────────────────────────────────
-st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Recent Bookings</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec">Recent Bookings</div>', unsafe_allow_html=True)
 if bookings:
     recent = sorted(bookings, key=lambda b: b.booking_date, reverse=True)[:8]
     rows = [{

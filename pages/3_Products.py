@@ -2,7 +2,6 @@ import streamlit as st
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from sidebar import show_sidebar_logout
 from auth import require_login
 from database import SessionLocal, Product
 
@@ -41,7 +40,6 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 </style>''', unsafe_allow_html=True)
 
 user = require_login()
-show_sidebar_logout()
 if not user:
     st.warning("Please log in first.")
     st.stop()
@@ -75,7 +73,7 @@ with st.expander("➕ Add New Product / Service", expanded=False):
                 st.rerun()
 
 st.divider()
-st.markdown('<div style="font-size:1.05rem; font-weight:600; color:#4F8EF7; margin-bottom:12px;">Your Products</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec">Your Products</div>', unsafe_allow_html=True)
 
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
 
