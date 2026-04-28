@@ -1,7 +1,8 @@
 import streamlit as st
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+from sidebar import show_sidebar_logout
+show_sidebar_logout()
 from auth import require_login
 from database import SessionLocal, Product
 if st.session_state.get("current_page") != "":

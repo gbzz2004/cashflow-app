@@ -3,7 +3,8 @@ import pandas as pd
 from datetime import datetime
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+from sidebar import show_sidebar_logout
+show_sidebar_logout()
 from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking, Product

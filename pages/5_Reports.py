@@ -9,6 +9,8 @@ from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking
 # Reset current page tracker
+from sidebar import show_sidebar_logout
+show_sidebar_logout()
 if st.session_state.get("current_page") != "":
     st.session_state["current_page"] = ""
     st.rerun()
