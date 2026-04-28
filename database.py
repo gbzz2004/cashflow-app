@@ -47,6 +47,17 @@ class Product(Base):
     owner = relationship("User", back_populates="products")
     bookings = relationship("Booking", back_populates="product")
 
+class Team(Base):
+    __tablename__ = "teams"
+    id         = Column(Integer, primary_key=True, index=True)
+    owner_id   = Column(Integer, ForeignKey("users.id"))
+    name       = Column(String)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner    = relationship("User", foreign_keys=[owner_id])
+    bookings = relationship("Booking", back_populates="team")
+
 
 class Booking(Base):
     __tablename__ = "bookings"
@@ -63,34 +74,37 @@ class Booking(Base):
     owner = relationship("User", back_populates="bookings", foreign_keys=[owner_id])
     product = relationship("Product", back_populates="bookings")
     customer = relationship("User", foreign_keys=[customer_id])
+    team = relationship("Team", back_populates="bookings")  # ← NEW
 
 
 def init_db():
-    # Create all tables first
     Base.metadata.create_all(bind=engine)
 
-    # ── Migrations: add new columns if they don't exist ──────────────────────
     with engine.connect() as conn:
-        # Add role column to users table
         try:
             conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'admin'"))
             conn.commit()
         except Exception:
-            pass  # Already exists
+            pass
 
-        # Update existing users to have role = 'admin' if null
         try:
             conn.execute(text("UPDATE users SET role = 'admin' WHERE role IS NULL"))
             conn.commit()
         except Exception:
             pass
 
-        # Add customer_id column to bookings table
         try:
             conn.execute(text("ALTER TABLE bookings ADD COLUMN customer_id INTEGER"))
             conn.commit()
         except Exception:
-            pass  # Already exists
+            pass
+
+        # ← NEW: team_id column
+        try:
+            conn.execute(text("ALTER TABLE bookings ADD COLUMN team_id INTEGER"))
+            conn.commit()
+        except Exception:
+            pass
 
 
 def get_db():
