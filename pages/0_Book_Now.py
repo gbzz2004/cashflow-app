@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from database import SessionLocal, Booking, Product, User
 # Reset current page tracker
-st.session_state["current_page"] = ""
+
 
 # ── Pick which business to book with ─────────────────────────────────────────
 db = SessionLocal()
