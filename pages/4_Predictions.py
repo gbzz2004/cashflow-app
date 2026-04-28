@@ -28,22 +28,32 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
-       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
-.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
-.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
-                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+
+/* Section titles — color:inherit lets Streamlit's theme control visibility */
+.sec-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid #EF9F27;
+    color: inherit;
+}
+
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
 [data-testid="stDataFrame"] { border-radius: 10px; }
 .stCaption { opacity: 0.7; }
 </style>''', unsafe_allow_html=True)
+
+def section_title(text):
+    st.markdown(f'<p class="sec-title">{text}</p>', unsafe_allow_html=True)
 
 user = require_login()
 if not user:
     st.warning("Please log in first.")
     st.stop()
 
-st.markdown('<div style="border-left:4px solid #EF9F27;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#EF9F27;font-weight:600;">Machine Learning</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">Revenue Prediction</h2></div>', unsafe_allow_html=True)
+st.markdown('<div style="border-left:4px solid #EF9F27;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#EF9F27;font-weight:600;">Machine Learning</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;">Revenue Prediction</h2></div>', unsafe_allow_html=True)
 st.caption("Polynomial regression on your historical booking data, powered by scikit-learn.")
 st.divider()
 
@@ -68,7 +78,7 @@ if not result["enough_data"]:
 s = result["summary"]
 
 # ── KPIs ──────────────────────────────────────────────────────────────────────
-st.markdown('<div class="sec">Forecast Summary</div>', unsafe_allow_html=True)
+section_title("Forecast Summary")
 c1, c2, c3, c4 = st.columns(4)
 for col, label, val in [
     (c1, f"Forecast Total ({days_ahead}d)", f"₱{s['total_forecast']:,.2f}"),
@@ -89,13 +99,12 @@ fore = result["forecast"].copy()
 fore["date"] = pd.to_datetime(fore["date"])
 
 def group_by_granularity(df, value_col, granularity):
-    """Aggregate a date+value dataframe by daily / monthly / yearly."""
     df = df.copy()
     if granularity == "Daily":
         df["label"] = df["date"].dt.strftime("%b %d, %Y")
     elif granularity == "Monthly":
         df["label"] = df["date"].dt.strftime("%b %Y")
-    else:  # Yearly
+    else:
         df["label"] = df["date"].dt.strftime("%Y")
     return df.groupby("label", sort=False)[value_col].sum().reset_index()
 
@@ -103,7 +112,7 @@ hist_grouped = group_by_granularity(hist, "revenue",           granularity)
 fore_grouped = group_by_granularity(fore, "predicted_revenue", granularity)
 
 # ── Main forecast bar chart ───────────────────────────────────────────────────
-st.markdown(f'<div class="sec">Historical vs {days_ahead}-Day Forecast — {granularity}</div>', unsafe_allow_html=True)
+section_title(f"Historical vs {days_ahead}-Day Forecast — {granularity}")
 
 fig = go.Figure()
 fig.add_trace(go.Bar(
@@ -136,8 +145,8 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# ── Predicted breakdown chart (always monthly, as a summary) ─────────────────
-st.markdown('<div class="sec">Predicted Monthly Breakdown</div>', unsafe_allow_html=True)
+# ── Predicted monthly breakdown ───────────────────────────────────────────────
+section_title("Predicted Monthly Breakdown")
 
 fore["month"] = fore["date"].dt.strftime("%Y-%m")
 monthly_fore  = fore.groupby("month")["predicted_revenue"].sum().reset_index().sort_values("month")
