@@ -16,6 +16,10 @@ if st.session_state.get("current_page") != "":
     st.session_state["current_page"] = ""
     st.rerun()
 
+# ── Initialize delete confirmation state ──────────────────────────────────────
+if "confirm_delete_team_id" not in st.session_state:
+    st.session_state["confirm_delete_team_id"] = None
+
 st.markdown('<div style="border-left:4px solid #4F8EF7;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#4F8EF7;font-weight:600;">Management</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color,#1a1a2e);">Teams</h2></div>', unsafe_allow_html=True)
 st.caption("Manage your shoot teams. The number of teams = max bookings per day.")
 st.divider()
@@ -67,10 +71,24 @@ else:
                 if t.description:
                     st.caption(t.description)
             with c2:
-                if st.button("🗑️ Delete", key=f"del_team_{t.id}", type="secondary"):
-                    db.delete(t)
-                    db.commit()
-                    st.success(f"Team '{t.name}' deleted.")
-                    st.rerun()
+                # ── If this team is pending confirmation ──────────────────────
+                if st.session_state["confirm_delete_team_id"] == t.id:
+                    st.warning("Are you sure?")
+                    btn_col1, btn_col2 = st.columns(2)
+                    with btn_col1:
+                        if st.button("✅ Yes", key=f"confirm_yes_{t.id}", type="primary", use_container_width=True):
+                            db.delete(t)
+                            db.commit()
+                            st.session_state["confirm_delete_team_id"] = None
+                            st.success(f"Team '{t.name}' deleted.")
+                            st.rerun()
+                    with btn_col2:
+                        if st.button("❌ No", key=f"confirm_no_{t.id}", use_container_width=True):
+                            st.session_state["confirm_delete_team_id"] = None
+                            st.rerun()
+                else:
+                    if st.button("🗑️ Delete", key=f"del_team_{t.id}", type="secondary", use_container_width=True):
+                        st.session_state["confirm_delete_team_id"] = t.id
+                        st.rerun()
 
 db.close()
