@@ -23,7 +23,6 @@ st.markdown('''<style>
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 
-/* Force card backgrounds to use theme-aware colors */
 .kpi {
     background: var(--background-color, #fff) !important;
     border: 1px solid rgba(127,119,221,0.25) !important;
@@ -32,23 +31,26 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
-       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
 
-/* Page header accent bar */
-.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
-.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
-                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+/* Section titles — use color:inherit so Streamlit controls the text color per theme */
+.sec-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid #7F77DD;
+    color: inherit;
+}
 
-/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
-
-/* Make Streamlit dataframes readable in dark mode */
 [data-testid="stDataFrame"] { border-radius: 10px; }
-
-/* Caption color */
 .stCaption { opacity: 0.7; }
 </style>''', unsafe_allow_html=True)
+
+def section_title(text):
+    """Render a section title that adapts to light and dark mode."""
+    st.markdown(f'<p class="sec-title">{text}</p>', unsafe_allow_html=True)
 
 user = require_login()
 if not user:
@@ -60,7 +62,7 @@ bookings = db.query(Booking).options(joinedload(Booking.product)).filter(Booking
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
 db.close()
 
-st.markdown(f'<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Dashboard</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">{user["business_name"]}</h2></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Dashboard</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;">{user["business_name"]}</h2></div>', unsafe_allow_html=True)
 st.caption("Welcome back. Here's your business at a glance.")
 st.divider()
 
@@ -71,23 +73,14 @@ cancelled  = [b for b in bookings if b.status == "cancelled"]
 
 now = datetime.now()
 
-# Filter this month by year+month so it's never affected by time-of-day
 month_completed = [
     b for b in completed
     if b.booking_date.year == now.year and b.booking_date.month == now.month
 ]
 
 def collected(b):
-    """
-    Return the amount actually collected for an approved booking.
-    - If a downpayment was set, we count the downpayment now plus
-      any remaining balance that has already been auto-settled (zeroed out).
-    - If no downpayment was set, fall back to the full booking amount.
-    """
     if b.downpayment is not None:
         remaining = b.remaining_balance or 0.0
-        # remaining_balance is zeroed after booking day passes (auto-settle in bookings page)
-        # so settled = full amount - outstanding balance
         settled = b.amount - remaining
         return max(b.downpayment, settled)
     return b.amount
@@ -111,7 +104,7 @@ monthly = get_monthly_summary(bookings)
 cl, cr = st.columns([3, 2])
 
 with cl:
-    st.markdown('<div class="sec">Monthly Revenue</div>', unsafe_allow_html=True)
+    section_title("Monthly Revenue")
     if not monthly.empty:
         fig = px.bar(monthly, x="month", y="revenue", color_discrete_sequence=["#7F77DD"],
                      labels={"month": "", "revenue": "₱"})
@@ -125,7 +118,7 @@ with cl:
         st.info("No completed bookings yet.")
 
 with cr:
-    st.markdown('<div class="sec">Booking Status</div>', unsafe_allow_html=True)
+    section_title("Booking Status")
     status_df = pd.DataFrame([
         {"Status": "Completed", "Count": len(completed)},
         {"Status": "Pending",   "Count": len(pending)},
@@ -142,7 +135,7 @@ with cr:
 st.divider()
 
 # ── Forecast ───────────────────────────────────────────────────────────────────
-st.markdown('<div class="sec">30-Day Forecast</div>', unsafe_allow_html=True)
+section_title("30-Day Forecast")
 result = predict_revenue(bookings, days_ahead=30)
 
 if result["enough_data"]:
@@ -176,7 +169,7 @@ else:
 st.divider()
 
 # ── Recent Bookings ─────────────────────────────────────────────────────────────
-st.markdown('<div class="sec">Recent Bookings</div>', unsafe_allow_html=True)
+section_title("Recent Bookings")
 if bookings:
     recent = sorted(bookings, key=lambda b: b.booking_date, reverse=True)[:8]
     rows = [{
