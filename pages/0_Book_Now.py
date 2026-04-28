@@ -150,6 +150,25 @@ if st.session_state.get("booking_success"):
     st.session_state["booking_success"] = False
 
 # ── Booking Form ──────────────────────────────────────────────────────────────
+# ← OUTSIDE the form so it updates in real-time
+booking_date = st.date_input(
+    "Preferred Date *",
+    value=date.today(),
+    min_value=date.today()
+)
+
+is_fully_booked = str(booking_date) in fully_booked_dates
+if is_fully_booked:
+    st.error(f"❌ Sorry! **{booking_date.strftime('%B %d, %Y')}** is fully booked ({total_teams}/{total_teams} teams occupied). Please choose another date.")
+else:
+    if total_teams > 0:
+        booked_on_date = sum(
+            1 for d, c in booked_counts
+            if str(d) == str(booking_date)
+        )
+        slots_left = total_teams - booked_on_date
+        st.success(f"✅ **{slots_left} slot(s)** available on {booking_date.strftime('%B %d, %Y')}")
+
 with st.form("client_booking_form", clear_on_submit=True):
     customer_name = st.text_input(
         "Your Name *",
@@ -166,17 +185,38 @@ with st.form("client_booking_form", clear_on_submit=True):
     if product_choice and product_choice.description:
         st.caption(f"ℹ️ {product_choice.description}")
 
-    booking_date = st.date_input(
-        "Preferred Date *",
-        value=date.today(),
-        min_value=date.today()
+    notes = st.text_area("Special requests or notes (optional)", height=80)
+
+    pay_option = st.radio(
+        "Payment",
+        ["I'll pay on the day (no payment now)", "Mark as paid"],
+        horizontal=True
     )
 
-    # ← Show warning inside form if date is fully booked
-    is_fully_booked = str(booking_date) in fully_booked_dates
-    if is_fully_booked:
-        st.error(f"❌ Sorry! **{booking_date.strftime('%B %d, %Y')}** is fully booked ({total_teams}/{total_teams} teams occupied). Please choose another date.")
+    st.divider()
+    submitted = st.form_submit_button(
+        "✅ Confirm Booking",
+        use_container_width=True,
+        disabled=is_fully_booked
+    )
 
+    if submitted:
+        if not customer_name.strip():
+            st.error("Please enter your name.")
+        elif is_fully_booked:
+            st.error("❌ This date is fully booked. Please choose another date.")
+        else:
+            st.session_state["pending_booking"] = {
+                "customer_name":    customer_name.strip(),
+                "customer_contact": customer_contact.strip(),
+                "product":          product_choice,
+                "booking_date":     booking_date,
+                "notes":            notes.strip(),
+                "pay_option":       pay_option,
+                "business":         selected_business,
+            }
+            st.session_state["show_confirm"] = True
+            st.rerun()
     notes = st.text_area("Special requests or notes (optional)", height=80)
 
     pay_option = st.radio(
