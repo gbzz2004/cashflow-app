@@ -3,7 +3,8 @@ from datetime import datetime, date
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from database import SessionLocal, Booking, Product, User
+from sqlalchemy import func
+from database import SessionLocal, Booking, Product, User, Team
 
 # ── Pick which business to book with ─────────────────────────────────────────
 db = SessionLocal()
@@ -28,13 +29,38 @@ else:
     selected_business = biz_choice
 
 products = db.query(Product).filter(Product.owner_id == selected_business.id).all()
+
+# ── Get team count and fully booked dates ─────────────────────────────────────
+total_teams = db.query(Team).filter(Team.owner_id == selected_business.id).count()
+
+booked_counts = db.query(
+    func.date(Booking.booking_date),
+    func.count(Booking.id)
+).filter(
+    Booking.owner_id == selected_business.id,
+    Booking.status != "cancelled"
+).group_by(func.date(Booking.booking_date)).all()
+
 db.close()
+
+fully_booked_dates = set()
+if total_teams > 0:
+    for booking_date_val, count in booked_counts:
+        if count >= total_teams:
+            fully_booked_dates.add(str(booking_date_val))
 
 if not products:
     st.warning(f"{selected_business.business_name} has no services listed yet. Check back soon!")
     st.stop()
 
 st.markdown(f"### {selected_business.business_name}")
+
+# ── Show team capacity info ───────────────────────────────────────────────────
+if total_teams > 0:
+    st.info(f"📅 This business has **{total_teams} team(s)** available — maximum **{total_teams} booking(s) per day**.")
+else:
+    st.warning("⚠️ No teams have been set up yet. Bookings are currently unlimited.")
+
 st.divider()
 
 customer = st.session_state.get("customer", None)
@@ -48,8 +74,7 @@ def confirm_booking_dialog():
     if not b:
         return
 
-    # ← Build notes line before HTML to avoid </div> rendering bug
-    notes_line = f"📝 <strong>Notes:</strong> {b['notes']}<br>" if b['notes'] else ""
+    notes_line    = f"📝 <strong>Notes:</strong> {b['notes']}<br>" if b['notes'] else ""
     payment_label = "Pay on the day 🕐" if b['pay_option'] == "I'll pay on the day (no payment now)" else "Paid ✅"
 
     st.markdown("### 📋 Booking Summary")
@@ -147,6 +172,11 @@ with st.form("client_booking_form", clear_on_submit=True):
         min_value=date.today()
     )
 
+    # ← Show warning inside form if date is fully booked
+    is_fully_booked = str(booking_date) in fully_booked_dates
+    if is_fully_booked:
+        st.error(f"❌ Sorry! **{booking_date.strftime('%B %d, %Y')}** is fully booked ({total_teams}/{total_teams} teams occupied). Please choose another date.")
+
     notes = st.text_area("Special requests or notes (optional)", height=80)
 
     pay_option = st.radio(
@@ -156,11 +186,17 @@ with st.form("client_booking_form", clear_on_submit=True):
     )
 
     st.divider()
-    submitted = st.form_submit_button("✅ Confirm Booking", use_container_width=True)
+    submitted = st.form_submit_button(
+        "✅ Confirm Booking",
+        use_container_width=True,
+        disabled=is_fully_booked  # ← disable button if fully booked
+    )
 
     if submitted:
         if not customer_name.strip():
             st.error("Please enter your name.")
+        elif is_fully_booked:
+            st.error("❌ This date is fully booked. Please choose another date.")
         else:
             st.session_state["pending_booking"] = {
                 "customer_name":    customer_name.strip(),
