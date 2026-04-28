@@ -12,15 +12,27 @@ st.set_page_config(
 
 # ── Auth check — redirect to dashboard if already logged in ───────────────────
 if st.session_state.get("user"):
-    dashboard = st.Page("pages/1_Dashboard.py",    label="Dashboard",         icon="📊")
-    bookings  = st.Page("pages/2_Bookings.py",     label="Bookings",          icon="📅")
-    book_now  = st.Page("pages/6_Book_Now.py",     label="↳ Book Now",        icon="📆")
-    products  = st.Page("pages/3_Products.py",     label="Products",          icon="🛍️")
-    predict   = st.Page("pages/4_Predictions.py",  label="Predictions",       icon="🔮")
-    reports   = st.Page("pages/5_Reports.py",      label="Reports",           icon="📄")
+    user = st.session_state["user"]
+
+    # Sidebar user info + logout
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown(f"👤 **{user['business_name']}**")
+        st.caption(f"@{user['username']}")
+        if st.button("🚪 Log Out", use_container_width=True):
+            del st.session_state["user"]
+            st.rerun()
+        st.markdown("---")
+
+    dashboard = st.Page("pages/1_Dashboard.py",   label="Dashboard",    icon="📊")
+    bookings  = st.Page("pages/2_Bookings.py",    label="Bookings",     icon="📅")
+    book_now  = st.Page("pages/6_Book_Now.py",    label="↳ Book Now",   icon="📆")
+    products  = st.Page("pages/3_Products.py",    label="Products",     icon="🛍️")
+    predict   = st.Page("pages/4_Predictions.py", label="Predictions",  icon="🔮")
+    reports   = st.Page("pages/5_Reports.py",     label="Reports",      icon="📄")
 
     pg = st.navigation({
-        "Main": [dashboard],
+        "Main":     [dashboard],
         "Bookings": [bookings, book_now],
         "Business": [products, predict, reports],
     })
