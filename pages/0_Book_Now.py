@@ -48,6 +48,10 @@ def confirm_booking_dialog():
     if not b:
         return
 
+    # ← Build notes line before HTML to avoid </div> rendering bug
+    notes_line = f"📝 <strong>Notes:</strong> {b['notes']}<br>" if b['notes'] else ""
+    payment_label = "Pay on the day 🕐" if b['pay_option'] == "I'll pay on the day (no payment now)" else "Paid ✅"
+
     st.markdown("### 📋 Booking Summary")
     st.markdown(f"""
     <div style="background:#1A1D2E;border:1px solid #2A2D3E;border-radius:14px;padding:20px;margin-bottom:16px;">
@@ -56,8 +60,8 @@ def confirm_booking_dialog():
             🎯 <strong>Service:</strong> {b['product'].name}<br>
             💰 <strong>Amount:</strong> ₱{b['product'].price:,.2f}<br>
             📅 <strong>Date:</strong> {b['booking_date'].strftime('%B %d, %Y')}<br>
-            💳 <strong>Payment:</strong> {'Pay on the day 🕐' if b['pay_option'] == "I'll pay on the day (no payment now)" else 'Paid ✅'}<br>
-            {"📝 <strong>Notes:</strong> " + b['notes'] if b['notes'] else ""}
+            💳 <strong>Payment:</strong> {payment_label}<br>
+            {notes_line}
         </div>
     </div>
     """, unsafe_allow_html=True)
