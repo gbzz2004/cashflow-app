@@ -61,6 +61,19 @@ if "customer" not in st.session_state:
 # ── Customer is logged in ─────────────────────────────────────────────────────
 customer = st.session_state["customer"]
 
+# ── Logout Confirmation Dialog ────────────────────────────────────────────────
+@st.dialog("Confirm Sign Out")
+def logout_dialog():
+    st.warning("⚠️ Are you sure you want to sign out?")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Yes, Sign Out", use_container_width=True, type="primary"):
+            del st.session_state["customer"]
+            st.rerun()
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
+            st.rerun()
+
 # ── Cancel Confirmation Dialog ────────────────────────────────────────────────
 @st.dialog("Cancel Booking")
 def cancel_booking_dialog():
@@ -106,18 +119,22 @@ def cancel_booking_dialog():
             del st.session_state["cancel_booking_id"]
             st.rerun()
 
-# ── Trigger cancel dialog ─────────────────────────────────────────────────────
+# ── Trigger dialogs ───────────────────────────────────────────────────────────
+if st.session_state.get("confirm_customer_logout"):
+    st.session_state["confirm_customer_logout"] = False
+    logout_dialog()
+
 if st.session_state.get("cancel_booking_id"):
     cancel_booking_dialog()
 
-# Header
+# ── Header ────────────────────────────────────────────────────────────────────
 col1, col2 = st.columns([3, 1])
 with col1:
     st.markdown(f"## 👋 Welcome, {customer['full_name']}!")
     st.caption("Manage your bookings below.")
 with col2:
     if st.button("Sign Out", use_container_width=True):
-        del st.session_state["customer"]
+        st.session_state["confirm_customer_logout"] = True
         st.rerun()
 
 st.divider()
@@ -155,7 +172,6 @@ with tab1:
                     st.caption(f"📅 {b.booking_date.strftime('%B %d, %Y')}")
 
                 with c2:
-                    # ── Payment breakdown ─────────────────────────────────
                     if b.status == "completed" and b.downpayment is not None:
                         remaining = b.remaining_balance or 0.0
                         st.markdown(f"💳 Downpayment: **₱{b.downpayment:,.2f}**")
