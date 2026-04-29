@@ -6,6 +6,25 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy.orm import joinedload
 from database import SessionLocal, Booking, Product, User
 from auth import login_customer, register_customer
+import qrcode
+from io import BytesIO
+
+# ── ⚙️ CONFIG — replace with your actual GCash number ────────────────────────
+GCASH_NUMBER = "09755434084"   # <-- put your GCash number here
+GCASH_NAME   = "BRAINARD GABRIEL IZON"  # <-- put your GCash account name here
+
+def make_gcash_qr(amount: float) -> BytesIO:
+    """Generate a GCash QR code encoding the number and amount."""
+    qr_data = f"GCash Payment\nPay to: {GCASH_NAME}\nNumber: {GCASH_NUMBER}\nAmount: PHP {amount:,.2f}"
+    img = qrcode.QRCode(version=2, box_size=8, border=3,
+                        error_correction=qrcode.constants.ERROR_CORRECT_M)
+    img.add_data(qr_data)
+    img.make(fit=True)
+    qr_img = img.make_image(fill_color="#0033A0", back_color="white")
+    buf = BytesIO()
+    qr_img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 # ── Auth Check ────────────────────────────────────────────────────────────────
 if "customer" not in st.session_state:
@@ -87,7 +106,6 @@ def cancel_booking_dialog():
     b = db.query(Booking).options(joinedload(Booking.product)).filter(
         Booking.id == booking_id
     ).first()
-
     if b:
         st.markdown(f"""
         <div style="background:#1A1D2E;border:1px solid #2A2D3E;border-radius:14px;padding:20px;margin:12px 0;">
@@ -101,7 +119,6 @@ def cancel_booking_dialog():
     db.close()
 
     st.caption("This action cannot be undone.")
-
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✅ Yes, Cancel", use_container_width=True, type="primary"):
@@ -119,6 +136,53 @@ def cancel_booking_dialog():
             del st.session_state["cancel_booking_id"]
             st.rerun()
 
+# ── GCash Payment Dialog ──────────────────────────────────────────────────────
+@st.dialog("💙 Pay via GCash", width="small")
+def gcash_payment_dialog():
+    booking_id = st.session_state.get("gcash_booking_id")
+    amount     = st.session_state.get("gcash_amount", 0.0)
+    if not booking_id:
+        return
+
+    st.markdown(f"""
+    <div style="text-align:center;margin-bottom:8px;">
+        <div style="font-size:1.1rem;font-weight:700;color:#0033A0;">GCash Payment</div>
+        <div style="font-size:0.85rem;color:#555;margin-top:4px;">
+            Scan the QR code using your GCash app to pay the downpayment.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # QR code
+    qr_buf = make_gcash_qr(amount)
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.image(qr_buf, width=200)
+
+    # Payment details
+    st.markdown(f"""
+    <div style="background:#f0f4ff;border:1.5px solid #0033A0;border-radius:12px;
+                padding:16px 20px;margin:12px 0;text-align:center;">
+        <div style="font-size:0.8rem;color:#0033A0;font-weight:600;
+                    text-transform:uppercase;letter-spacing:0.08em;">Amount to Pay</div>
+        <div style="font-size:1.8rem;font-weight:700;color:#0033A0;margin:4px 0;">
+            ₱{amount:,.2f}
+        </div>
+        <div style="font-size:0.85rem;color:#333;margin-top:8px;">
+            📱 <strong>{GCASH_NUMBER}</strong><br>
+            👤 {GCASH_NAME}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.caption("📌 Steps: Open GCash → Scan QR → Enter amount → Confirm payment. "
+               "Take a screenshot of your receipt and inform the admin.")
+
+    if st.button("✅ Done", use_container_width=True, type="primary"):
+        st.session_state.pop("gcash_booking_id", None)
+        st.session_state.pop("gcash_amount", None)
+        st.rerun()
+
 # ── Trigger dialogs ───────────────────────────────────────────────────────────
 if st.session_state.get("confirm_customer_logout"):
     st.session_state["confirm_customer_logout"] = False
@@ -126,6 +190,9 @@ if st.session_state.get("confirm_customer_logout"):
 
 if st.session_state.get("cancel_booking_id"):
     cancel_booking_dialog()
+
+if st.session_state.get("gcash_booking_id"):
+    gcash_payment_dialog()
 
 # ── Header ────────────────────────────────────────────────────────────────────
 col1, col2 = st.columns([3, 1])
@@ -195,10 +262,22 @@ with tab1:
                     st.caption(f"{status_color} {status_label}")
 
                 with c3:
+                    # Cancel button for pending bookings
                     if b.status == "pending":
                         if st.button("Cancel", key=f"cancel_{b.id}", type="secondary"):
                             st.session_state["cancel_booking_id"] = b.id
                             st.rerun()
+
+                    # GCash Pay button for approved bookings with outstanding downpayment
+                    if (b.status == "completed"
+                            and b.downpayment is not None
+                            and (b.remaining_balance or 0) > 0
+                            and not is_past):
+                        if st.button("💙 Pay", key=f"gcash_{b.id}", type="primary"):
+                            st.session_state["gcash_booking_id"] = b.id
+                            st.session_state["gcash_amount"]     = b.downpayment
+                            st.rerun()
+
     db.close()
 
 # ── Tab 2: Rebook ─────────────────────────────────────────────────────────────
