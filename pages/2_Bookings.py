@@ -66,7 +66,7 @@ for b in overdue:
 db_settle.commit()
 db_settle.close()
 
-# ── Downpayment dialog ────────────────────────────────────────────────────────
+# ── Downpayment / Approve dialog ──────────────────────────────────────────────
 @st.dialog("Set Downpayment")
 def downpayment_dialog(booking_id: int, total_amount: float):
     st.markdown(f"**Total service price:** ₱{total_amount:,.2f}")
@@ -103,11 +103,52 @@ def downpayment_dialog(booking_id: int, total_amount: float):
             st.session_state.pop("pending_approval_amount", None)
             st.rerun()
 
-# Trigger dialog if queued
+# ── Cancel confirmation dialog ────────────────────────────────────────────────
+@st.dialog("Confirm Cancellation")
+def cancel_dialog(booking_id: int, customer_name: str, service: str, amount: float, booking_date):
+    st.warning(f"⚠️ Are you sure you want to cancel this booking?")
+    st.markdown(f"""
+    <div style="border:1px solid #f5f5f5;border-radius:10px;padding:14px 18px;margin:10px 0;">
+        <div style="font-size:0.9rem;line-height:2;">
+            👤 <strong>Customer:</strong> {customer_name}<br>
+            🎯 <strong>Service:</strong> {service}<br>
+            📅 <strong>Date:</strong> {booking_date.strftime('%B %d, %Y')}<br>
+            💰 <strong>Amount:</strong> ₱{amount:,.2f}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("This action cannot be undone.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔴 Yes, Cancel Booking", use_container_width=True, type="primary"):
+            db2 = SessionLocal()
+            row = db2.query(Booking).filter(Booking.id == booking_id).first()
+            if row:
+                row.status            = "cancelled"
+                row.downpayment       = None
+                row.remaining_balance = None
+            db2.commit()
+            db2.close()
+            st.session_state.pop("pending_cancel_id", None)
+            st.rerun()
+    with col2:
+        if st.button("← Go Back", use_container_width=True):
+            st.session_state.pop("pending_cancel_id", None)
+            st.rerun()
+
+# ── Trigger dialogs if queued ─────────────────────────────────────────────────
 if "pending_approval_id" in st.session_state:
     downpayment_dialog(
         st.session_state["pending_approval_id"],
         st.session_state["pending_approval_amount"]
+    )
+
+if "pending_cancel_id" in st.session_state:
+    info = st.session_state["pending_cancel_id"]
+    cancel_dialog(
+        info["id"], info["customer_name"], info["service"],
+        info["amount"], info["booking_date"]
     )
 
 db = SessionLocal()
@@ -144,7 +185,6 @@ filtered    = sorted(filtered, key=key_fn, reverse=rev)
 if not filtered:
     st.info("No bookings found for the selected filters.")
 else:
-    # Summary counts downpayments as income for approved bookings
     approved_income = sum(
         (b.downpayment if b.downpayment is not None else b.amount)
         for b in filtered if b.status == "completed"
@@ -163,7 +203,6 @@ else:
             team_label = f"  🎬 {b.team.name}" if b.team else ""
             st.markdown(f"**#{b.id} — {b.customer_name}**{team_label}")
 
-            # Build payment line
             if b.status == "completed" and b.downpayment is not None:
                 bal = b.remaining_balance or 0.0
                 if bal > 0:
@@ -185,7 +224,6 @@ else:
             status_locked = b.status in ("completed", "cancelled")
 
             if status_locked:
-                # ── Status is final — show a locked badge, no dropdown ──
                 badge_color = {"completed": "#2e7d32", "cancelled": "#c62828"}.get(b.status, "#555")
                 st.markdown(
                     f'<div style="border:1px solid {badge_color};border-radius:8px;padding:6px 12px;'
@@ -195,7 +233,7 @@ else:
                     unsafe_allow_html=True
                 )
             else:
-                # ── Still pending — allow one status change ──
+                # Still pending — show dropdown
                 new_status_ui = st.selectbox(
                     "Status",
                     STATUS_OPTIONS_UI,
@@ -208,15 +246,15 @@ else:
                         st.session_state["pending_approval_id"]     = b.id
                         st.session_state["pending_approval_amount"] = b.amount
                         st.rerun()
-                    else:
-                        db2 = SessionLocal()
-                        row = db2.query(Booking).filter(Booking.id == b.id).first()
-                        if row:
-                            row.status            = STATUS_DB[new_status_ui]
-                            row.downpayment       = None
-                            row.remaining_balance = None
-                        db2.commit()
-                        db2.close()
+                    elif new_status_ui == "Cancelled":
+                        # Queue cancel confirmation instead of acting immediately
+                        st.session_state["pending_cancel_id"] = {
+                            "id":            b.id,
+                            "customer_name": b.customer_name,
+                            "service":       b.product.name if b.product else "—",
+                            "amount":        b.amount,
+                            "booking_date":  b.booking_date,
+                        }
                         st.rerun()
 
             # ── Team assignment (only when Approved) ──────────────────────
@@ -230,7 +268,6 @@ else:
                     current_team = b.team.name if b.team else None
 
                     if current_team:
-                        # ── Team already assigned — locked, cannot change ──
                         st.markdown(
                             f'<div style="border:1px solid #7F77DD;border-radius:8px;padding:6px 12px;'
                             f'color:#7F77DD;font-weight:600;font-size:0.85rem;text-align:center;margin-top:6px;">'
@@ -239,7 +276,6 @@ else:
                             unsafe_allow_html=True
                         )
                     else:
-                        # ── Find teams already assigned to another booking on the same date ──
                         booking_date_only = b.booking_date.date() if hasattr(b.booking_date, 'date') else b.booking_date
                         db5 = SessionLocal()
                         same_day_bookings = db5.query(Booking).filter(
