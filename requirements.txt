@@ -5,4 +5,4 @@ sqlalchemy
 plotly
 python-dotenv
 bcrypt
-qrcode[pil]
+psycopg2-binary
