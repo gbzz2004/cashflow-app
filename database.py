@@ -83,7 +83,7 @@ class Booking(Base):
 
 
 def init_db():
-    # Creates all tables automatically — works for both SQLite and PostgreSQL
+    # Creates all tables — works for both SQLite and PostgreSQL
     Base.metadata.create_all(bind=engine)
 
     # SQLite-only migrations for existing databases
@@ -103,6 +103,24 @@ def init_db():
                     conn.commit()
                 except Exception:
                     pass
+
+    # ── Create static admin account if it doesn't exist ──────────────────────
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(User.username == "GAB_EDITOR").first()
+        if not existing:
+            import bcrypt
+            hashed = bcrypt.hashpw("bgboy123".encode(), bcrypt.gensalt()).decode()
+            admin  = User(
+                username="GAB_EDITOR",
+                hashed_password=hashed,
+                business_name="StoryWeave Films",
+                role="admin"
+            )
+            db.add(admin)
+            db.commit()
+    finally:
+        db.close()
 
 
 def get_db():
