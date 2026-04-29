@@ -92,6 +92,7 @@ def downpayment_dialog(booking_id: int, total_amount: float):
                 row.status            = "completed"
                 row.downpayment       = dp
                 row.remaining_balance = remaining
+                row.downpayment_paid  = False
             db2.commit()
             db2.close()
             st.session_state.pop("pending_approval_id", None)
@@ -106,7 +107,7 @@ def downpayment_dialog(booking_id: int, total_amount: float):
 # ── Cancel confirmation dialog ────────────────────────────────────────────────
 @st.dialog("Confirm Cancellation")
 def cancel_dialog(booking_id: int, customer_name: str, service: str, amount: float, booking_date):
-    st.warning(f"⚠️ Are you sure you want to cancel this booking?")
+    st.warning("⚠️ Are you sure you want to cancel this booking?")
     st.markdown(f"""
     <div style="border:1px solid #f5f5f5;border-radius:10px;padding:14px 18px;margin:10px 0;">
         <div style="font-size:0.9rem;line-height:2;">
@@ -128,6 +129,7 @@ def cancel_dialog(booking_id: int, customer_name: str, service: str, amount: flo
                 row.status            = "cancelled"
                 row.downpayment       = None
                 row.remaining_balance = None
+                row.downpayment_paid  = False
             db2.commit()
             db2.close()
             st.session_state.pop("pending_cancel_id", None)
@@ -135,6 +137,41 @@ def cancel_dialog(booking_id: int, customer_name: str, service: str, amount: flo
     with col2:
         if st.button("← Go Back", use_container_width=True):
             st.session_state.pop("pending_cancel_id", None)
+            st.rerun()
+
+# ── Mark as Paid confirmation dialog ─────────────────────────────────────────
+@st.dialog("Confirm Downpayment Receipt")
+def mark_paid_dialog(booking_id: int, customer_name: str, downpayment: float):
+    st.success(f"Confirm that you have received the downpayment from **{customer_name}**.")
+    st.markdown(f"""
+    <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;
+                padding:16px 20px;margin:10px 0;text-align:center;">
+        <div style="font-size:0.8rem;color:#166534;font-weight:600;
+                    text-transform:uppercase;letter-spacing:0.08em;">Downpayment Received</div>
+        <div style="font-size:2rem;font-weight:700;color:#166534;margin:6px 0;">
+            ₱{downpayment:,.2f}
+        </div>
+        <div style="font-size:0.82rem;color:#166534;">
+            This will be counted in your revenue immediately.<br>
+            The remaining balance will be added on the booking day.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Yes, Mark as Paid", use_container_width=True, type="primary"):
+            db2 = SessionLocal()
+            row = db2.query(Booking).filter(Booking.id == booking_id).first()
+            if row:
+                row.downpayment_paid = True
+            db2.commit()
+            db2.close()
+            st.session_state.pop("pending_mark_paid_id", None)
+            st.rerun()
+    with col2:
+        if st.button("← Go Back", use_container_width=True):
+            st.session_state.pop("pending_mark_paid_id", None)
             st.rerun()
 
 # ── Trigger dialogs if queued ─────────────────────────────────────────────────
@@ -150,6 +187,10 @@ if "pending_cancel_id" in st.session_state:
         info["id"], info["customer_name"], info["service"],
         info["amount"], info["booking_date"]
     )
+
+if "pending_mark_paid_id" in st.session_state:
+    info = st.session_state["pending_mark_paid_id"]
+    mark_paid_dialog(info["id"], info["customer_name"], info["downpayment"])
 
 db = SessionLocal()
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
@@ -187,12 +228,18 @@ if not filtered:
 else:
     approved_income = sum(
         (b.downpayment if b.downpayment is not None else b.amount)
-        for b in filtered if b.status == "completed"
+        for b in filtered if b.status == "completed" and b.downpayment_paid
+    )
+    pending_dp = sum(
+        b.downpayment for b in filtered
+        if b.status == "completed" and b.downpayment is not None and not b.downpayment_paid
     )
     pending_total = sum(b.amount for b in filtered if b.status == "pending")
     st.caption(
         f"Showing **{len(filtered)}** booking(s) — "
-        f"Approved income: **₱{approved_income:,.2f}** | Pending: **₱{pending_total:,.2f}**"
+        f"Confirmed revenue: **₱{approved_income:,.2f}** | "
+        f"Awaiting DP: **₱{pending_dp:,.2f}** | "
+        f"Pending: **₱{pending_total:,.2f}**"
     )
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -203,12 +250,20 @@ else:
             team_label = f"  🎬 {b.team.name}" if b.team else ""
             st.markdown(f"**#{b.id} — {b.customer_name}**{team_label}")
 
+            # Build payment line
             if b.status == "completed" and b.downpayment is not None:
                 bal = b.remaining_balance or 0.0
-                if bal > 0:
-                    pay_info = f"  |  💳 DP: ₱{b.downpayment:,.2f}  |  ⏳ Balance due on day: ₱{bal:,.2f}"
+                dp_paid = b.downpayment_paid or False
+
+                if dp_paid:
+                    dp_tag = f"💳 DP: ₱{b.downpayment:,.2f} ✅"
                 else:
-                    pay_info = f"  |  💳 DP: ₱{b.downpayment:,.2f}  |  ✅ Fully settled"
+                    dp_tag = f"💳 DP: ₱{b.downpayment:,.2f} ⏳ awaiting payment"
+
+                if bal > 0:
+                    pay_info = f"  |  {dp_tag}  |  Balance on day: ₱{bal:,.2f}"
+                else:
+                    pay_info = f"  |  {dp_tag}  |  ✅ Fully settled"
             else:
                 pay_info = f"  |  ₱{b.amount:,.2f}"
 
@@ -233,7 +288,6 @@ else:
                     unsafe_allow_html=True
                 )
             else:
-                # Still pending — show dropdown
                 new_status_ui = st.selectbox(
                     "Status",
                     STATUS_OPTIONS_UI,
@@ -247,7 +301,6 @@ else:
                         st.session_state["pending_approval_amount"] = b.amount
                         st.rerun()
                     elif new_status_ui == "Cancelled":
-                        # Queue cancel confirmation instead of acting immediately
                         st.session_state["pending_cancel_id"] = {
                             "id":            b.id,
                             "customer_name": b.customer_name,
@@ -256,6 +309,29 @@ else:
                             "booking_date":  b.booking_date,
                         }
                         st.rerun()
+
+            # ── Mark as Paid button (approved, has DP, not yet paid) ──────
+            if (b.status == "completed"
+                    and b.downpayment is not None
+                    and not (b.downpayment_paid or False)):
+                st.markdown("<div style='margin-top:6px;'>", unsafe_allow_html=True)
+                if st.button("💰 Mark DP as Paid", key=f"paid_{b.id}", use_container_width=True):
+                    st.session_state["pending_mark_paid_id"] = {
+                        "id":            b.id,
+                        "customer_name": b.customer_name,
+                        "downpayment":   b.downpayment,
+                    }
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            elif (b.status == "completed"
+                    and b.downpayment is not None
+                    and (b.downpayment_paid or False)):
+                st.markdown(
+                    '<div style="margin-top:6px;font-size:0.8rem;color:#2e7d32;'
+                    'font-weight:600;text-align:center;">💰 DP Received ✅</div>',
+                    unsafe_allow_html=True
+                )
 
             # ── Team assignment (only when Approved) ──────────────────────
             if b.status == "completed":

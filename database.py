@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, text
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, joinedload
 from datetime import datetime
@@ -66,9 +66,10 @@ class Booking(Base):
     customer_id       = Column(Integer, ForeignKey("users.id"), nullable=True)
     team_id           = Column(Integer, ForeignKey("teams.id"), nullable=True)
     customer_name     = Column(String)
-    amount            = Column(Float)           # total service price
-    downpayment       = Column(Float, nullable=True)   # set by admin on approval
-    remaining_balance = Column(Float, nullable=True)   # auto-calculated; 0 once booking date passes
+    amount            = Column(Float)                        # total service price
+    downpayment       = Column(Float, nullable=True)         # set by admin on approval
+    remaining_balance = Column(Float, nullable=True)         # zeroed out after booking day
+    downpayment_paid  = Column(Boolean, default=False)       # admin marks when DP is received
     status            = Column(String, default="pending")
     booking_date      = Column(DateTime, default=datetime.utcnow)
     notes             = Column(Text, nullable=True)
@@ -90,6 +91,7 @@ def init_db():
             "ALTER TABLE bookings ADD COLUMN team_id INTEGER",
             "ALTER TABLE bookings ADD COLUMN downpayment REAL",
             "ALTER TABLE bookings ADD COLUMN remaining_balance REAL",
+            "ALTER TABLE bookings ADD COLUMN downpayment_paid BOOLEAN DEFAULT 0",
         ]:
             try:
                 conn.execute(text(stmt))
