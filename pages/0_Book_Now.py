@@ -199,23 +199,21 @@ else:
         slots_left = total_teams - booked_today
         st.success(f"✅ **{slots_left} slot(s)** available on {booking_date.strftime('%B %d, %Y')}")
 
-# ← OUTSIDE the form so description updates in real-time
-product_choice = st.selectbox(
-    "Service *",
-    options=products,
-    format_func=lambda p: f"{p.name}  —  ₱{p.price:,.2f}"
-)
-
-if product_choice and product_choice.description:
-    st.info(f"ℹ️ {product_choice.description}")
-
 with st.form("client_booking_form", clear_on_submit=True):
     customer_name = st.text_input(
         "Your Name *",
         value=customer["full_name"] if customer else ""
     )
     customer_contact = st.text_input("Contact Number or Email *")
-    # product_choice is now outside ← remove it from here
+
+    product_choice = st.selectbox(
+        "Service *",
+        options=products,
+        format_func=lambda p: f"{p.name}  —  ₱{p.price:,.2f}"
+    )
+
+    if product_choice and product_choice.description:
+        st.caption(f"ℹ️ {product_choice.description}")
 
     notes = st.text_area("Special requests or notes *", height=80, key="booking_notes")
 
