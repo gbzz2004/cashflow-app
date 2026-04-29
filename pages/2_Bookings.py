@@ -69,9 +69,35 @@ db_settle.close()
 # ── Downpayment / Approve dialog ──────────────────────────────────────────────
 @st.dialog("Set Downpayment")
 def downpayment_dialog(booking_id: int, total_amount: float):
-    st.markdown(f"**Total service price:** ₱{total_amount:,.2f}")
-    st.caption("Enter the downpayment amount the customer will pay now. The remaining balance will be collected on the day of the booking.")
+    # ── Check if date is already full ─────────────────────────────────────
+    db_check = SessionLocal()
+    this_booking = db_check.query(Booking).filter(Booking.id == booking_id).first()
+    total_teams  = db_check.query(Team).filter(Team.owner_id == user["id"]).count()
 
+    if this_booking and total_teams > 0:
+        booking_date_only = this_booking.booking_date.date()
+        approved_on_date  = db_check.query(Booking).filter(
+            Booking.owner_id  == user["id"],
+            Booking.status    == "completed",
+            Booking.id        != booking_id,
+        ).all()
+        approved_count = sum(
+            1 for b in approved_on_date
+            if (b.booking_date.date() if hasattr(b.booking_date, 'date') else b.booking_date) == booking_date_only
+        )
+        db_check.close()
+
+        if approved_count >= total_teams:
+            st.error(f"❌ Cannot approve! **{booking_date_only.strftime('%B %d, %Y')}** already has **{approved_count}/{total_teams}** approved bookings. All teams are occupied on this date.")
+            if st.button("← Go Back", use_container_width=True):
+                st.session_state.pop("pending_approval_id", None)
+                st.session_state.pop("pending_approval_amount", None)
+                st.rerun()
+            return
+    else:
+        db_check.close()
+
+    st.markdown(f"**Total service price:** ₱{total_amount:,.2f}")
     dp = st.number_input(
         "Downpayment Amount (₱)",
         min_value=0.0,
