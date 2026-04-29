@@ -73,24 +73,14 @@ month_completed = [
 
 def collected(b):
     """
-    Revenue counting rules:
-    - Downpayment is counted only after admin marks it as paid (downpayment_paid=True)
-    - Remaining balance is counted after the booking day passes (auto-settled to 0)
-    - If no downpayment was set, full amount counts once approved
+    Revenue counting rules (matches Bookings page):
+    - Only count bookings where downpayment has been marked as paid
+    - Count the downpayment amount only (not the remaining balance)
+    - If no downpayment was set, only count if downpayment_paid is True
     """
-    if b.downpayment is not None:
-        dp_paid   = b.downpayment_paid or False
-        remaining = b.remaining_balance or 0.0
-        # remaining_balance is zeroed after booking day — that means it's been settled
-        remaining_settled = b.amount - b.downpayment - remaining  # 0 until booking day passes
-
-        total = 0.0
-        if dp_paid:
-            total += b.downpayment        # confirmed DP
-        total += remaining_settled        # add settled remaining (0 until booking day)
-        return total
-    # No downpayment set — count full amount once approved
-    return b.amount
+    if b.downpayment_paid:
+        return b.downpayment if b.downpayment is not None else b.amount
+    return 0.0
 
 total_revenue = sum(collected(b) for b in completed)
 month_revenue = sum(collected(b) for b in month_completed)
