@@ -6,6 +6,24 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy.orm import joinedload
 from database import SessionLocal, Booking, Product, User
 from auth import login_customer, register_customer
+import qrcode
+from io import BytesIO
+
+# ── ⚙️ CONFIG — replace with your actual GCash details ───────────────────────
+GCASH_NUMBER = "09755434084"   # <-- your GCash number
+GCASH_NAME   = "BRAINARD GABRIEL IZON"  # <-- your GCash account name
+
+def make_gcash_qr(amount: float) -> BytesIO:
+    qr_data = f"GCash Payment\nPay to: {GCASH_NAME}\nNumber: {GCASH_NUMBER}\nAmount: PHP {amount:,.2f}"
+    img = qrcode.QRCode(version=2, box_size=8, border=3,
+                        error_correction=qrcode.constants.ERROR_CORRECT_M)
+    img.add_data(qr_data)
+    img.make(fit=True)
+    qr_img = img.make_image(fill_color="#0033A0", back_color="white")
+    buf = BytesIO()
+    qr_img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 # ── Auth Check ────────────────────────────────────────────────────────────────
 if "customer" not in st.session_state:
@@ -87,7 +105,6 @@ def cancel_booking_dialog():
     b = db.query(Booking).options(joinedload(Booking.product)).filter(
         Booking.id == booking_id
     ).first()
-
     if b:
         st.markdown(f"""
         <div style="background:#1A1D2E;border:1px solid #2A2D3E;border-radius:14px;padding:20px;margin:12px 0;">
@@ -101,7 +118,6 @@ def cancel_booking_dialog():
     db.close()
 
     st.caption("This action cannot be undone.")
-
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✅ Yes, Cancel", use_container_width=True, type="primary"):
@@ -119,6 +135,84 @@ def cancel_booking_dialog():
             del st.session_state["cancel_booking_id"]
             st.rerun()
 
+# ── Payment Method Dialog ─────────────────────────────────────────────────────
+@st.dialog("💳 Choose Payment Method", width="small")
+def payment_dialog():
+    booking_id = st.session_state.get("pay_booking_id")
+    amount     = st.session_state.get("pay_amount", 0.0)
+    if not booking_id:
+        return
+
+    st.markdown(f"""
+    <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:1rem;color:#555;">Downpayment due</div>
+        <div style="font-size:2rem;font-weight:700;color:#0033A0;">₱{amount:,.2f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    method = st.radio(
+        "Select how you'd like to pay:",
+        ["💙 Online — GCash QR", "🚶 Walk-in — Pay on appointment day"],
+        index=0,
+        key="payment_method_choice"
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if method == "💙 Online — GCash QR":
+        # ── GCash QR ─────────────────────────────────────────────────────
+        qr_buf = make_gcash_qr(amount)
+        col_l, col_c, col_r = st.columns([1, 2, 1])
+        with col_c:
+            st.image(qr_buf, width=190)
+
+        st.markdown(f"""
+        <div style="background:#f0f4ff;border:1.5px solid #0033A0;border-radius:12px;
+                    padding:14px 18px;margin:10px 0;text-align:center;">
+            <div style="font-size:0.8rem;color:#0033A0;font-weight:600;
+                        text-transform:uppercase;letter-spacing:0.08em;">Send payment to</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#0033A0;margin:4px 0;">
+                📱 {GCASH_NUMBER}
+            </div>
+            <div style="font-size:0.85rem;color:#333;">👤 {GCASH_NAME}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.caption("Open GCash → Scan QR or send to number → Enter amount → Confirm. "
+                   "Screenshot your receipt and send it to the admin.")
+
+        if st.button("✅ Done — I've Paid", use_container_width=True, type="primary"):
+            st.session_state.pop("pay_booking_id", None)
+            st.session_state.pop("pay_amount", None)
+            st.session_state["pay_success"] = "gcash"
+            st.rerun()
+
+    else:
+        # ── Walk-in ───────────────────────────────────────────────────────
+        st.markdown(f"""
+        <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;
+                    padding:16px 18px;margin:10px 0;text-align:center;">
+            <div style="font-size:1.5rem;margin-bottom:6px;">🚶</div>
+            <div style="font-weight:700;color:#166534;font-size:0.95rem;">Pay on Appointment Day</div>
+            <div style="font-size:0.85rem;color:#166534;margin-top:6px;line-height:1.6;">
+                Bring <strong>₱{amount:,.2f}</strong> in cash on your appointment day.<br>
+                Please arrive on time.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.caption("⚠️ Walk-in payment must be settled at the start of your appointment.")
+
+        if st.button("✅ Got it", use_container_width=True, type="primary"):
+            st.session_state.pop("pay_booking_id", None)
+            st.session_state.pop("pay_amount", None)
+            st.session_state["pay_success"] = "walkin"
+            st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Back", use_container_width=True):
+        st.session_state.pop("pay_booking_id", None)
+        st.session_state.pop("pay_amount", None)
+        st.rerun()
+
 # ── Trigger dialogs ───────────────────────────────────────────────────────────
 if st.session_state.get("confirm_customer_logout"):
     st.session_state["confirm_customer_logout"] = False
@@ -126,6 +220,9 @@ if st.session_state.get("confirm_customer_logout"):
 
 if st.session_state.get("cancel_booking_id"):
     cancel_booking_dialog()
+
+if st.session_state.get("pay_booking_id"):
+    payment_dialog()
 
 # ── Header ────────────────────────────────────────────────────────────────────
 col1, col2 = st.columns([3, 1])
@@ -139,10 +236,17 @@ with col2:
 
 st.divider()
 
-# ── Cancel success message ────────────────────────────────────────────────────
+# ── Success messages ──────────────────────────────────────────────────────────
 if st.session_state.get("cancel_success"):
     st.success("✅ Booking has been cancelled.")
     st.session_state["cancel_success"] = False
+
+if st.session_state.get("pay_success") == "gcash":
+    st.success("💙 GCash payment noted! Please send your receipt to the admin.")
+    st.session_state.pop("pay_success", None)
+elif st.session_state.get("pay_success") == "walkin":
+    st.success("🚶 Walk-in payment selected. Please bring the exact amount on your appointment day.")
+    st.session_state.pop("pay_success", None)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["📋 My Bookings", "🔁 Rebook", "✅ Confirmation"])
@@ -199,6 +303,17 @@ with tab1:
                         if st.button("Cancel", key=f"cancel_{b.id}", type="secondary"):
                             st.session_state["cancel_booking_id"] = b.id
                             st.rerun()
+
+                    # Pay button — approved, has downpayment, not yet past
+                    if (b.status == "completed"
+                            and b.downpayment is not None
+                            and (b.remaining_balance or 0) > 0
+                            and not is_past):
+                        if st.button("💳 Pay", key=f"pay_{b.id}", type="primary"):
+                            st.session_state["pay_booking_id"] = b.id
+                            st.session_state["pay_amount"]     = b.downpayment
+                            st.rerun()
+
     db.close()
 
 # ── Tab 2: Rebook ─────────────────────────────────────────────────────────────
