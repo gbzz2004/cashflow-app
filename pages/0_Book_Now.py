@@ -74,6 +74,30 @@ def confirm_booking_dialog():
     if not b:
         return
 
+    # ── Recheck limit right before saving ────────────────────────────────────
+    db_recheck      = SessionLocal()
+    total_teams_now = db_recheck.query(Team).filter(
+        Team.owner_id == b["business"].id
+    ).count()
+
+    if total_teams_now > 0:
+        booked_now = db_recheck.query(Booking).filter(
+            Booking.owner_id == b["business"].id,
+            Booking.status   != "cancelled",
+            func.date(Booking.booking_date) == b["booking_date"]
+        ).count()
+        db_recheck.close()
+
+        if booked_now >= total_teams_now:
+            st.error(f"❌ Sorry! **{b['booking_date'].strftime('%B %d, %Y')}** just became fully booked ({booked_now}/{total_teams_now} teams occupied). Please choose another date.")
+            if st.button("← Go Back", use_container_width=True):
+                st.session_state["show_confirm"] = False
+                del st.session_state["pending_booking"]
+                st.rerun()
+            return
+    else:
+        db_recheck.close()
+
     notes_line = f"📝 <strong>Notes:</strong> {b['notes']}<br>" if b['notes'] else ""
 
     st.markdown("### 📋 Booking Summary")
@@ -156,16 +180,23 @@ booking_date = st.date_input(
     min_value=date.today()
 )
 
-is_fully_booked = str(booking_date) in fully_booked_dates
+# ── Recheck availability in real-time when date changes ──────────────────────
+db_live      = SessionLocal()
+total_teams  = db_live.query(Team).filter(Team.owner_id == selected_business.id).count()
+booked_today = db_live.query(Booking).filter(
+    Booking.owner_id == selected_business.id,
+    Booking.status   != "cancelled",
+    func.date(Booking.booking_date) == booking_date
+).count()
+db_live.close()
+
+is_fully_booked = total_teams > 0 and booked_today >= total_teams
+
 if is_fully_booked:
-    st.error(f"❌ Sorry! **{booking_date.strftime('%B %d, %Y')}** is fully booked ({total_teams}/{total_teams} teams occupied). Please choose another date.")
+    st.error(f"❌ Sorry! **{booking_date.strftime('%B %d, %Y')}** is fully booked ({booked_today}/{total_teams} teams occupied). Please choose another date.")
 else:
     if total_teams > 0:
-        booked_on_date = sum(
-            1 for d, c in booked_counts
-            if str(d) == str(booking_date)
-        )
-        slots_left = total_teams - booked_on_date
+        slots_left = total_teams - booked_today
         st.success(f"✅ **{slots_left} slot(s)** available on {booking_date.strftime('%B %d, %Y')}")
 
 with st.form("client_booking_form", clear_on_submit=True):
