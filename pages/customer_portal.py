@@ -10,8 +10,8 @@ import qrcode
 from io import BytesIO
 
 # ── ⚙️ CONFIG — replace with your actual GCash details ───────────────────────
-GCASH_NUMBER = "09755434084"   # <-- your GCash number
-GCASH_NAME   = "BRAINARD GABRIEL IZON"  # <-- your GCash account name
+GCASH_NUMBER = "09XX-XXX-XXXX"   # <-- your GCash number
+GCASH_NAME   = "Your Name Here"  # <-- your GCash account name
 
 def make_gcash_qr(amount: float) -> BytesIO:
     qr_data = f"GCash Payment\nPay to: {GCASH_NAME}\nNumber: {GCASH_NUMBER}\nAmount: PHP {amount:,.2f}"
@@ -278,18 +278,31 @@ with tab1:
                 with c2:
                     if b.status == "completed" and b.downpayment is not None:
                         remaining = b.remaining_balance or 0.0
-                        st.markdown(f"💳 Downpayment: **₱{b.downpayment:,.2f}**")
+                        dp_paid   = b.downpayment_paid or False
+
+                        # ── Downpayment status line ───────────────────────
+                        if dp_paid:
+                            st.markdown(
+                                f"<span style='color:#16a34a;font-weight:600;'>"
+                                f"💳 DP: ₱{b.downpayment:,.2f} ✅ Confirmed</span>",
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.markdown(
+                                f"<span style='color:#f59e0b;font-weight:600;'>"
+                                f"💳 DP: ₱{b.downpayment:,.2f} ⏳ Awaiting payment</span>",
+                                unsafe_allow_html=True
+                            )
+
+                        # ── Remaining balance status line ─────────────────
                         if remaining > 0:
                             if is_past:
                                 st.caption("✅ Remaining balance settled on appointment day")
                             else:
-                                st.markdown(
-                                    f"<span style='color:#f59e0b;font-weight:600;'>"
-                                    f"⏳ Balance due on day: ₱{remaining:,.2f}</span>",
-                                    unsafe_allow_html=True
-                                )
+                                st.caption(f"🏷️ Balance on appointment day: ₱{remaining:,.2f}")
                         else:
                             st.caption("✅ Fully settled")
+
                     elif b.status == "pending":
                         st.markdown(f"₱{b.amount:,.2f}")
                         st.caption("🕐 Awaiting approval — downpayment TBD")
@@ -304,15 +317,24 @@ with tab1:
                             st.session_state["cancel_booking_id"] = b.id
                             st.rerun()
 
-                    # Pay button — approved, has downpayment, not yet past
+                    # Pay button — approved, has DP, not yet paid by customer, not past
                     if (b.status == "completed"
                             and b.downpayment is not None
-                            and (b.remaining_balance or 0) > 0
+                            and not (b.downpayment_paid or False)
                             and not is_past):
                         if st.button("💳 Pay", key=f"pay_{b.id}", type="primary"):
                             st.session_state["pay_booking_id"] = b.id
                             st.session_state["pay_amount"]     = b.downpayment
                             st.rerun()
+                    elif (b.status == "completed"
+                            and b.downpayment is not None
+                            and (b.downpayment_paid or False)
+                            and not is_past):
+                        st.markdown(
+                            "<div style='font-size:0.78rem;color:#16a34a;font-weight:600;"
+                            "text-align:center;'>✅ Paid</div>",
+                            unsafe_allow_html=True
+                        )
 
     db.close()
 

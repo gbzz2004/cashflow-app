@@ -11,7 +11,6 @@ from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking, Product
 from ml_predict import get_monthly_summary, predict_revenue
-# Reset current page tracker
 if st.session_state.get("current_page") != "":
     st.session_state["current_page"] = ""
     st.rerun()
@@ -22,7 +21,6 @@ st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
-
 .kpi {
     background: var(--background-color, #fff) !important;
     border: 1px solid rgba(127,119,221,0.25) !important;
@@ -31,8 +29,6 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-
-/* Section titles — use color:inherit so Streamlit controls the text color per theme */
 .sec-title {
     font-family: 'Playfair Display', serif;
     font-size: 1.05rem;
@@ -42,14 +38,12 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
     border-left: 3px solid #7F77DD;
     color: inherit;
 }
-
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
 [data-testid="stDataFrame"] { border-radius: 10px; }
 .stCaption { opacity: 0.7; }
 </style>''', unsafe_allow_html=True)
 
 def section_title(text):
-    """Render a section title that adapts to light and dark mode."""
     st.markdown(f'<p class="sec-title">{text}</p>', unsafe_allow_html=True)
 
 user = require_login()
@@ -67,22 +61,35 @@ st.caption("Welcome back. Here's your business at a glance.")
 st.divider()
 
 # ── KPIs ───────────────────────────────────────────────────────────────────────
-completed  = [b for b in bookings if b.status == "completed"]
-pending    = [b for b in bookings if b.status == "pending"]
-cancelled  = [b for b in bookings if b.status == "cancelled"]
+completed = [b for b in bookings if b.status == "completed"]
+pending   = [b for b in bookings if b.status == "pending"]
+cancelled = [b for b in bookings if b.status == "cancelled"]
 
 now = datetime.now()
-
 month_completed = [
     b for b in completed
     if b.booking_date.year == now.year and b.booking_date.month == now.month
 ]
 
 def collected(b):
+    """
+    Revenue counting rules:
+    - Downpayment is counted only after admin marks it as paid (downpayment_paid=True)
+    - Remaining balance is counted after the booking day passes (auto-settled to 0)
+    - If no downpayment was set, full amount counts once approved
+    """
     if b.downpayment is not None:
+        dp_paid   = b.downpayment_paid or False
         remaining = b.remaining_balance or 0.0
-        settled = b.amount - remaining
-        return max(b.downpayment, settled)
+        # remaining_balance is zeroed after booking day — that means it's been settled
+        remaining_settled = b.amount - b.downpayment - remaining  # 0 until booking day passes
+
+        total = 0.0
+        if dp_paid:
+            total += b.downpayment        # confirmed DP
+        total += remaining_settled        # add settled remaining (0 until booking day)
+        return total
+    # No downpayment set — count full amount once approved
     return b.amount
 
 total_revenue = sum(collected(b) for b in completed)
@@ -168,7 +175,7 @@ else:
 
 st.divider()
 
-# ── Recent Bookings ─────────────────────────────────────────────────────────────
+# ── Recent Bookings ────────────────────────────────────────────────────────────
 section_title("Recent Bookings")
 if bookings:
     recent = sorted(bookings, key=lambda b: b.booking_date, reverse=True)[:8]
@@ -178,6 +185,7 @@ if bookings:
         "Service":  b.product.name if b.product else "—",
         "Amount":   f"₱{b.amount:,.2f}",
         "Status":   b.status.capitalize(),
+        "DP Paid":  "✅ Yes" if (b.downpayment_paid or False) else ("—" if b.downpayment is None else "⏳ Pending"),
     } for b in recent]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 else:
