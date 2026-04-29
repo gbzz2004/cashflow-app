@@ -9,9 +9,11 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////tmp/cashflow.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+is_sqlite = "sqlite" in DATABASE_URL
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {"sslmode": "require"}
+    connect_args={"check_same_thread": False} if is_sqlite else {"sslmode": "require"}
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -66,10 +68,10 @@ class Booking(Base):
     customer_id       = Column(Integer, ForeignKey("users.id"), nullable=True)
     team_id           = Column(Integer, ForeignKey("teams.id"), nullable=True)
     customer_name     = Column(String)
-    amount            = Column(Float)                        # total service price
-    downpayment       = Column(Float, nullable=True)         # set by admin on approval
-    remaining_balance = Column(Float, nullable=True)         # zeroed out after booking day
-    downpayment_paid  = Column(Boolean, default=False)       # admin marks when DP is received
+    amount            = Column(Float)
+    downpayment       = Column(Float, nullable=True)
+    remaining_balance = Column(Float, nullable=True)
+    downpayment_paid  = Column(Boolean, default=False)
     status            = Column(String, default="pending")
     booking_date      = Column(DateTime, default=datetime.utcnow)
     notes             = Column(Text, nullable=True)
@@ -81,23 +83,26 @@ class Booking(Base):
 
 
 def init_db():
+    # Creates all tables automatically — works for both SQLite and PostgreSQL
     Base.metadata.create_all(bind=engine)
 
-    with engine.connect() as conn:
-        for stmt in [
-            "ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'admin'",
-            "UPDATE users SET role = 'admin' WHERE role IS NULL",
-            "ALTER TABLE bookings ADD COLUMN customer_id INTEGER",
-            "ALTER TABLE bookings ADD COLUMN team_id INTEGER",
-            "ALTER TABLE bookings ADD COLUMN downpayment REAL",
-            "ALTER TABLE bookings ADD COLUMN remaining_balance REAL",
-            "ALTER TABLE bookings ADD COLUMN downpayment_paid BOOLEAN DEFAULT 0",
-        ]:
-            try:
-                conn.execute(text(stmt))
-                conn.commit()
-            except Exception:
-                pass
+    # SQLite-only migrations for existing databases
+    if is_sqlite:
+        with engine.connect() as conn:
+            for stmt in [
+                "ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'admin'",
+                "UPDATE users SET role = 'admin' WHERE role IS NULL",
+                "ALTER TABLE bookings ADD COLUMN customer_id INTEGER",
+                "ALTER TABLE bookings ADD COLUMN team_id INTEGER",
+                "ALTER TABLE bookings ADD COLUMN downpayment REAL",
+                "ALTER TABLE bookings ADD COLUMN remaining_balance REAL",
+                "ALTER TABLE bookings ADD COLUMN downpayment_paid BOOLEAN DEFAULT 0",
+            ]:
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception:
+                    pass
 
 
 def get_db():
