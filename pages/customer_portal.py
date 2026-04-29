@@ -5,14 +5,33 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from sqlalchemy.orm import joinedload
 from database import SessionLocal, Booking, Product, User
-from auth import login_customer, register_customer
+from auth import login_customer, register_customer, hash_password, verify_password
 import qrcode
 from io import BytesIO
 
-# ── ⚙️ CONFIG — replace with your actual GCash details ───────────────────────
-GCASH_NUMBER = "09XX-XXX-XXXX"   # <-- your GCash number
-GCASH_NAME   = "Your Name Here"  # <-- your GCash account name
+# ── ⚙️ CONFIG ─────────────────────────────────────────────────────────────────
+GCASH_NUMBER = "09755434084"
+GCASH_NAME   = "BRAINARD GABRIEL IZON"
 
+# ── Styles (matching admin UI) ────────────────────────────────────────────────
+st.markdown('''<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
+html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
+h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
+.kpi {
+    background: var(--background-color, #fff) !important;
+    border: 1px solid rgba(127,119,221,0.25) !important;
+    border-radius: 14px;
+    padding: 24px 26px;
+}
+.kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
+.kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
+[data-testid="stDataFrame"] { border-radius: 10px; }
+.stCaption { opacity: 0.7; }
+.block-container { max-width: 100% !important; padding-left: 2rem !important; padding-right: 2rem !important; }
+</style>''', unsafe_allow_html=True)
+
+# ── GCash QR helper ───────────────────────────────────────────────────────────
 def make_gcash_qr(amount: float) -> BytesIO:
     qr_data = f"GCash Payment\nPay to: {GCASH_NAME}\nNumber: {GCASH_NUMBER}\nAmount: PHP {amount:,.2f}"
     img = qrcode.QRCode(version=2, box_size=8, border=3,
@@ -79,7 +98,17 @@ if "customer" not in st.session_state:
 # ── Customer is logged in ─────────────────────────────────────────────────────
 customer = st.session_state["customer"]
 
-# ── Logout Confirmation Dialog ────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("---")
+    st.markdown(f"👤 **{customer['full_name']}**")
+    st.caption(f"@{customer['username']}")
+    if st.button("🚪 Sign Out", use_container_width=True, key="customer_signout_btn"):
+        st.session_state["confirm_customer_logout"] = True
+        st.rerun()
+    st.markdown("---")
+
+# ── Dialogs ───────────────────────────────────────────────────────────────────
 @st.dialog("Confirm Sign Out")
 def logout_dialog():
     st.warning("⚠️ Are you sure you want to sign out?")
@@ -90,21 +119,18 @@ def logout_dialog():
             st.rerun()
     with col2:
         if st.button("❌ Cancel", use_container_width=True):
+            st.session_state["confirm_customer_logout"] = False
             st.rerun()
 
-# ── Cancel Confirmation Dialog ────────────────────────────────────────────────
+
 @st.dialog("Cancel Booking")
 def cancel_booking_dialog():
     booking_id = st.session_state.get("cancel_booking_id")
     if not booking_id:
         return
-
     st.warning("⚠️ Are you sure you want to cancel this booking?")
-
     db = SessionLocal()
-    b = db.query(Booking).options(joinedload(Booking.product)).filter(
-        Booking.id == booking_id
-    ).first()
+    b = db.query(Booking).options(joinedload(Booking.product)).filter(Booking.id == booking_id).first()
     if b:
         st.markdown(f"""
         <div style="background:#1A1D2E;border:1px solid #2A2D3E;border-radius:14px;padding:20px;margin:12px 0;">
@@ -116,7 +142,6 @@ def cancel_booking_dialog():
         </div>
         """, unsafe_allow_html=True)
     db.close()
-
     st.caption("This action cannot be undone.")
     col1, col2 = st.columns(2)
     with col1:
@@ -135,83 +160,67 @@ def cancel_booking_dialog():
             del st.session_state["cancel_booking_id"]
             st.rerun()
 
-# ── Payment Method Dialog ─────────────────────────────────────────────────────
+
 @st.dialog("💳 Choose Payment Method", width="small")
 def payment_dialog():
     booking_id = st.session_state.get("pay_booking_id")
     amount     = st.session_state.get("pay_amount", 0.0)
     if not booking_id:
         return
-
     st.markdown(f"""
     <div style="text-align:center;margin-bottom:16px;">
         <div style="font-size:1rem;color:#555;">Downpayment due</div>
         <div style="font-size:2rem;font-weight:700;color:#0033A0;">₱{amount:,.2f}</div>
     </div>
     """, unsafe_allow_html=True)
-
     method = st.radio(
         "Select how you'd like to pay:",
         ["💙 Online — GCash QR", "🚶 Walk-in — Pay on appointment day"],
-        index=0,
-        key="payment_method_choice"
+        index=0, key="payment_method_choice"
     )
-
     st.markdown("<br>", unsafe_allow_html=True)
-
     if method == "💙 Online — GCash QR":
-        # ── GCash QR ─────────────────────────────────────────────────────
         qr_buf = make_gcash_qr(amount)
         col_l, col_c, col_r = st.columns([1, 2, 1])
         with col_c:
             st.image(qr_buf, width=190)
-
         st.markdown(f"""
         <div style="background:#f0f4ff;border:1.5px solid #0033A0;border-radius:12px;
                     padding:14px 18px;margin:10px 0;text-align:center;">
-            <div style="font-size:0.8rem;color:#0033A0;font-weight:600;
-                        text-transform:uppercase;letter-spacing:0.08em;">Send payment to</div>
-            <div style="font-size:1.1rem;font-weight:700;color:#0033A0;margin:4px 0;">
-                📱 {GCASH_NUMBER}
-            </div>
+            <div style="font-size:0.8rem;color:#0033A0;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Send payment to</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#0033A0;margin:4px 0;">📱 {GCASH_NUMBER}</div>
             <div style="font-size:0.85rem;color:#333;">👤 {GCASH_NAME}</div>
         </div>
         """, unsafe_allow_html=True)
-        st.caption("Open GCash → Scan QR or send to number → Enter amount → Confirm. "
-                   "Screenshot your receipt and send it to the admin.")
-
+        st.caption("Open GCash → Scan QR or send to number → Enter amount → Confirm. Screenshot your receipt and send it to the admin.")
         if st.button("✅ Done — I've Paid", use_container_width=True, type="primary"):
             st.session_state.pop("pay_booking_id", None)
             st.session_state.pop("pay_amount", None)
             st.session_state["pay_success"] = "gcash"
             st.rerun()
-
     else:
-        # ── Walk-in ───────────────────────────────────────────────────────
         st.markdown(f"""
         <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;
                     padding:16px 18px;margin:10px 0;text-align:center;">
             <div style="font-size:1.5rem;margin-bottom:6px;">🚶</div>
             <div style="font-weight:700;color:#166534;font-size:0.95rem;">Pay on Appointment Day</div>
             <div style="font-size:0.85rem;color:#166534;margin-top:6px;line-height:1.6;">
-                Bring <strong>₱{amount:,.2f}</strong> in cash on your appointment day.<br>
-                Please arrive on time.
+                Bring <strong>₱{amount:,.2f}</strong> in cash on your appointment day.<br>Please arrive on time.
             </div>
         </div>
         """, unsafe_allow_html=True)
         st.caption("⚠️ Walk-in payment must be settled at the start of your appointment.")
-
         if st.button("✅ Got it", use_container_width=True, type="primary"):
             st.session_state.pop("pay_booking_id", None)
             st.session_state.pop("pay_amount", None)
             st.session_state["pay_success"] = "walkin"
             st.rerun()
-
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("← Back", use_container_width=True):
         st.session_state.pop("pay_booking_id", None)
         st.session_state.pop("pay_amount", None)
         st.rerun()
+
 
 # ── Trigger dialogs ───────────────────────────────────────────────────────────
 if st.session_state.get("confirm_customer_logout"):
@@ -224,16 +233,17 @@ if st.session_state.get("cancel_booking_id"):
 if st.session_state.get("pay_booking_id"):
     payment_dialog()
 
-# ── Header ────────────────────────────────────────────────────────────────────
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.markdown(f"## 👋 Welcome, {customer['full_name']}!")
-    st.caption("Manage your bookings below.")
-with col2:
-    if st.button("Sign Out", use_container_width=True):
-        st.session_state["confirm_customer_logout"] = True
-        st.rerun()
-
+# ── Page header (admin style) ─────────────────────────────────────────────────
+st.markdown(
+    f'<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;">'
+    f'<span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;'
+    f'color:#7F77DD;font-weight:600;">Customer Portal</span>'
+    f'<h2 style="margin:4px 0 0;font-family:Playfair Display,serif;'
+    f'color:var(--text-color, #1a1a2e);">Welcome, {customer["full_name"]}!</h2>'
+    f'</div>',
+    unsafe_allow_html=True
+)
+st.caption("Manage your bookings and account below.")
 st.divider()
 
 # ── Success messages ──────────────────────────────────────────────────────────
@@ -248,8 +258,11 @@ elif st.session_state.get("pay_success") == "walkin":
     st.success("🚶 Walk-in payment selected. Please bring the exact amount on your appointment day.")
     st.session_state.pop("pay_success", None)
 
+if st.session_state.get("profile_success"):
+    st.success("✅ " + st.session_state.pop("profile_success"))
+
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["📋 My Bookings", "🔁 Rebook", "✅ Confirmation"])
+tab1, tab2, tab3, tab4 = st.tabs(["📋 My Bookings", "🔁 Rebook", "✅ Confirmation", "⚙️ Edit Profile"])
 
 # ── Tab 1: My Bookings ────────────────────────────────────────────────────────
 with tab1:
@@ -278,9 +291,7 @@ with tab1:
                 with c2:
                     if b.status == "completed" and b.downpayment is not None:
                         remaining = b.remaining_balance or 0.0
-                        dp_paid   = b.downpayment_paid or False
-
-                        # ── Downpayment status line ───────────────────────
+                        dp_paid   = getattr(b, "downpayment_paid", False) or False
                         if dp_paid:
                             st.markdown(
                                 f"<span style='color:#16a34a;font-weight:600;'>"
@@ -293,8 +304,6 @@ with tab1:
                                 f"💳 DP: ₱{b.downpayment:,.2f} ⏳ Awaiting payment</span>",
                                 unsafe_allow_html=True
                             )
-
-                        # ── Remaining balance status line ─────────────────
                         if remaining > 0:
                             if is_past:
                                 st.caption("✅ Remaining balance settled on appointment day")
@@ -302,7 +311,6 @@ with tab1:
                                 st.caption(f"🏷️ Balance on appointment day: ₱{remaining:,.2f}")
                         else:
                             st.caption("✅ Fully settled")
-
                     elif b.status == "pending":
                         st.markdown(f"₱{b.amount:,.2f}")
                         st.caption("🕐 Awaiting approval — downpayment TBD")
@@ -316,26 +324,20 @@ with tab1:
                         if st.button("Cancel", key=f"cancel_{b.id}", type="secondary"):
                             st.session_state["cancel_booking_id"] = b.id
                             st.rerun()
-
-                    # Pay button — approved, has DP, not yet paid by customer, not past
-                    if (b.status == "completed"
-                            and b.downpayment is not None
-                            and not (b.downpayment_paid or False)
-                            and not is_past):
+                    dp_paid = getattr(b, "downpayment_paid", False) or False
+                    if (b.status == "completed" and b.downpayment is not None
+                            and not dp_paid and not is_past):
                         if st.button("💳 Pay", key=f"pay_{b.id}", type="primary"):
                             st.session_state["pay_booking_id"] = b.id
                             st.session_state["pay_amount"]     = b.downpayment
                             st.rerun()
-                    elif (b.status == "completed"
-                            and b.downpayment is not None
-                            and (b.downpayment_paid or False)
-                            and not is_past):
+                    elif (b.status == "completed" and b.downpayment is not None
+                            and dp_paid and not is_past):
                         st.markdown(
                             "<div style='font-size:0.78rem;color:#16a34a;font-weight:600;"
                             "text-align:center;'>✅ Paid</div>",
                             unsafe_allow_html=True
                         )
-
     db.close()
 
 # ── Tab 2: Rebook ─────────────────────────────────────────────────────────────
@@ -356,7 +358,6 @@ with tab2:
         }
         choice   = st.selectbox("Select booking to rebook", list(options.keys()))
         selected = options[choice]
-
         new_date = st.date_input("New Date", value=date.today(), min_value=date.today())
         notes    = st.text_area("Special requests (optional)", height=80)
 
@@ -404,3 +405,70 @@ with tab3:
         st.caption("Check the **My Bookings** tab after approval to see your downpayment and remaining balance.")
     else:
         st.info("No recent booking confirmation. Book or rebook a service first!")
+
+# ── Tab 4: Edit Profile ───────────────────────────────────────────────────────
+with tab4:
+    st.markdown(
+        '<div style="border-left:4px solid #7F77DD;padding-left:12px;margin-bottom:20px;">'
+        '<strong style="font-size:1rem;">Account Settings</strong></div>',
+        unsafe_allow_html=True
+    )
+
+    # ── Change Full Name ──────────────────────────────────────────────────────
+    with st.expander("✏️ Change Full Name", expanded=False):
+        with st.form("change_name_form"):
+            new_name = st.text_input(
+                "New Full Name",
+                value=customer["full_name"],
+                placeholder="Enter your new name"
+            )
+            if st.form_submit_button("💾 Save Name", use_container_width=True):
+                if not new_name.strip():
+                    st.error("❌ Name cannot be empty.")
+                elif new_name.strip() == customer["full_name"]:
+                    st.warning("⚠️ That's already your current name.")
+                else:
+                    db = SessionLocal()
+                    row = db.query(User).filter(User.id == customer["id"]).first()
+                    if row:
+                        row.business_name = new_name.strip()
+                        db.commit()
+                        st.session_state["customer"]["full_name"] = new_name.strip()
+                    db.close()
+                    st.session_state["profile_success"] = f"Full name updated to '{new_name.strip()}'."
+                    st.rerun()
+
+    # ── Change Password ───────────────────────────────────────────────────────
+    with st.expander("🔒 Change Password", expanded=False):
+        with st.form("change_password_form"):
+            current_pw = st.text_input(
+                "Current Password", type="password",
+                placeholder="Enter your current password"
+            )
+            new_pw     = st.text_input(
+                "New Password", type="password",
+                placeholder="Min. 6 characters"
+            )
+            confirm_pw = st.text_input(
+                "Confirm New Password", type="password",
+                placeholder="Repeat new password"
+            )
+            if st.form_submit_button("🔒 Update Password", use_container_width=True):
+                if not all([current_pw, new_pw, confirm_pw]):
+                    st.error("❌ All fields are required.")
+                elif len(new_pw) < 6:
+                    st.error("❌ New password must be at least 6 characters.")
+                elif new_pw != confirm_pw:
+                    st.error("❌ New passwords do not match.")
+                else:
+                    db  = SessionLocal()
+                    row = db.query(User).filter(User.id == customer["id"]).first()
+                    if not row or not verify_password(current_pw, row.hashed_password):
+                        st.error("❌ Current password is incorrect.")
+                        db.close()
+                    else:
+                        row.hashed_password = hash_password(new_pw)
+                        db.commit()
+                        db.close()
+                        st.session_state["profile_success"] = "Password updated successfully."
+                        st.rerun()
