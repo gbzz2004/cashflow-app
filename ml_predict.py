@@ -14,7 +14,7 @@ def prepare_time_series(bookings: list) -> pd.DataFrame:
     df = pd.DataFrame([{
         "date": b.booking_date.date(),
         "amount": b.amount
-    } for b in bookings if b.status == "completed"])
+    } for b in bookings if b.status and b.status.lower() == "completed"])
 
     if df.empty:
         return pd.DataFrame(columns=["date", "revenue"])
@@ -106,7 +106,7 @@ def get_monthly_summary(bookings: list) -> pd.DataFrame:
         "status": b.status
     } for b in bookings])
 
-    completed = df[df["status"] == "completed"]
+    completed = df[df["status"].str.lower() == "completed"]
     if completed.empty:
         return pd.DataFrame(columns=["month", "revenue", "count"])
 
