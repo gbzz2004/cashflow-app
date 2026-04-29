@@ -64,6 +64,18 @@ if not bookings:
     st.info("No bookings yet. Add some bookings first.")
     st.stop()
 
+def collected(b):
+    if b.downpayment is not None:
+        dp_paid   = b.downpayment_paid or False
+        remaining = b.remaining_balance or 0.0
+        remaining_settled = b.amount - b.downpayment - remaining
+        total = 0.0
+        if dp_paid:
+            total += b.downpayment
+        total += remaining_settled
+        return total
+    return b.amount
+
 # ── Filters ────────────────────────────────────────────────────────────────────
 f1, f2, f3 = st.columns(3)
 dates = [b.booking_date for b in bookings]
@@ -79,11 +91,11 @@ st.divider()
 
 # ── Summary KPIs ───────────────────────────────────────────────────────────────
 paid_f = [b for b in filtered if b.status == "completed"]
-avg    = sum(b.amount for b in paid_f) / len(paid_f) if paid_f else 0
+avg    = sum(collected(b) for b in paid_f) / len(paid_f) if paid_f else 0
 
 c1, c2, c3, c4 = st.columns(4)
 for col, label, val in [
-    (c1, "Total Revenue",   f"₱{sum(b.amount for b in paid_f):,.2f}"),
+    (c1, "Total Revenue",   f"₱{sum(collected(b) for b in paid_f):,.2f}"),
     (c2, "Total Bookings",  str(len(filtered))),
     (c3, "Completed",       str(len(paid_f))),
     (c4, "Avg per Booking", f"₱{avg:,.2f}"),
@@ -106,7 +118,7 @@ with col_left:
         by_product = {}
         for b in paid_f:
             pname = b.product.name if b.product else "Unknown"
-            by_product[pname] = by_product.get(pname, 0) + b.amount
+            by_product[pname] = by_product.get(pname, 0) + collected(b)
         prod_df = pd.DataFrame(list(by_product.items()), columns=["Product", "Revenue"]).sort_values("Revenue", ascending=False)
         fig = px.bar(prod_df, x="Product", y="Revenue", color_discrete_sequence=["#7F77DD"],
                      labels={"Product": "", "Revenue": "₱"})
@@ -158,13 +170,13 @@ with col_right:
         from sklearn.linear_model import LinearRegression
         from collections import defaultdict
 
-        all_amounts  = [b.amount for b in all_completed]
+        all_amounts  = [collected(b) for b in all_completed]
         total_income = sum(all_amounts)
         avg_booking  = total_income / len(all_completed)
 
         monthly = defaultdict(float)
         for b in all_completed:
-            monthly[b.booking_date.strftime("%Y-%m")] += b.amount
+            monthly[b.booking_date.strftime("%Y-%m")] += collected(b)
         sorted_months    = sorted(monthly.keys())
         monthly_revenues = [monthly[m] for m in sorted_months]
         num_months       = len(sorted_months)
@@ -182,7 +194,7 @@ with col_right:
         product_count   = defaultdict(int)
         for b in all_completed:
             pname = b.product.name if b.product else "Unknown"
-            product_revenue[pname] += b.amount
+            product_revenue[pname] += collected(b)
             product_count[pname]   += 1
 
         best_product  = max(product_revenue, key=product_revenue.get)
