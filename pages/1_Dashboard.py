@@ -4,13 +4,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import sys, os
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sidebar import show_sidebar_logout
+
 show_sidebar_logout()
 from sqlalchemy.orm import joinedload
 from auth import require_login
 from database import SessionLocal, Booking, Product
 from ml_predict import get_monthly_summary, predict_revenue
+
+# Reset current page tracker
 if st.session_state.get("current_page") != "":
     st.session_state["current_page"] = ""
     st.rerun()
@@ -21,6 +25,8 @@ st.markdown('''<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
+
+/* Force card backgrounds to use theme-aware colors */
 .kpi {
     background: var(--background-color, #fff) !important;
     border: 1px solid rgba(127,119,221,0.25) !important;
@@ -29,22 +35,23 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-.sec-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.05rem;
-    font-weight: 600;
-    margin-bottom: 12px;
-    padding-left: 10px;
-    border-left: 3px solid #7F77DD;
-    color: inherit;
-}
+.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
+       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
+
+/* Page header accent bar */
+.page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
+.page-header-title { margin:4px 0 0; font-family:'Playfair Display',serif;
+                     color: var(--text-color, #1a1a2e); font-size:1.8rem; }
+
+/* Recommendation cards — use semi-transparent backgrounds so they work in dark mode */
 .rec-card { border-radius:14px; padding:18px 20px; margin-bottom:10px; }
+
+/* Make Streamlit dataframes readable in dark mode */
 [data-testid="stDataFrame"] { border-radius: 10px; }
+
+/* Caption color */
 .stCaption { opacity: 0.7; }
 </style>''', unsafe_allow_html=True)
-
-def section_title(text):
-    st.markdown(f'<p class="sec-title">{text}</p>', unsafe_allow_html=True)
 
 user = require_login()
 if not user:
@@ -56,43 +63,44 @@ bookings = db.query(Booking).options(joinedload(Booking.product)).filter(Booking
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
 db.close()
 
-st.markdown(f'<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Dashboard</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;">{user["business_name"]}</h2></div>', unsafe_allow_html=True)
+
+def collected(b):
+    """Returns only the amount actually collected for a booking."""
+    if b.downpayment is not None:
+        dp_paid = getattr(b, "downpayment_paid", False) or False
+        remaining = b.remaining_balance or 0.0
+        remaining_settled = b.amount - b.downpayment - remaining
+        total = 0.0
+        if dp_paid:
+            total += b.downpayment
+        total += remaining_settled
+        return total
+    return b.amount
+
+
+st.markdown(
+    f'<div style="border-left:4px solid #7F77DD;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#7F77DD;font-weight:600;">Dashboard</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;color:var(--text-color, #1a1a2e);">{user["business_name"]}</h2></div>',
+    unsafe_allow_html=True)
 st.caption("Welcome back. Here's your business at a glance.")
 st.divider()
 
 # ── KPIs ───────────────────────────────────────────────────────────────────────
 completed = [b for b in bookings if b.status == "completed"]
-pending   = [b for b in bookings if b.status == "pending"]
+pending = [b for b in bookings if b.status == "pending"]
 cancelled = [b for b in bookings if b.status == "cancelled"]
-
-now = datetime.now()
-month_completed = [
-    b for b in completed
-    if b.booking_date.year == now.year and b.booking_date.month == now.month
-]
-
-def collected(b):
-    """
-    Revenue counting rules (matches Bookings page):
-    - Only count bookings where downpayment has been marked as paid
-    - Count the downpayment amount only (not the remaining balance)
-    - If no downpayment was set, only count if downpayment_paid is True
-    """
-    if b.downpayment_paid:
-        return b.downpayment if b.downpayment is not None else b.amount
-    return 0.0
-
-total_revenue = sum(collected(b) for b in completed)
-month_revenue = sum(collected(b) for b in month_completed)
+this_month = datetime.now().replace(day=1)
+month_completed = [b for b in completed if b.booking_date >= this_month]
 
 c1, c2, c3, c4 = st.columns(4)
 for col, label, value, sub in [
-    (c1, "Total Revenue",      f"₱{total_revenue:,.2f}",  f"{len(completed)} completed bookings"),
-    (c2, "This Month",         f"₱{month_revenue:,.2f}",  f"{len(month_completed)} approved in {now.strftime('%B')}"),
-    (c3, "Completed Bookings", str(len(completed)),        "all time"),
-    (c4, "Pending Bookings",   str(len(pending)),          "awaiting confirmation"),
+    (c1, "Total Revenue", f"₱{sum(collected(b) for b in completed):,.2f}", "completed bookings"),
+    (c2, "This Month", f"₱{sum(collected(b) for b in month_completed):,.2f}", "completed this month"),
+    (c3, "Completed Bookings", str(len(completed)), "all time"),
+    (c4, "Pending Bookings", str(len(pending)), "awaiting completion"),
 ]:
-    col.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-sub">{sub}</div></div>', unsafe_allow_html=True)
+    col.markdown(
+        f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-sub">{sub}</div></div>',
+        unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -101,11 +109,11 @@ monthly = get_monthly_summary(bookings)
 cl, cr = st.columns([3, 2])
 
 with cl:
-    section_title("Monthly Revenue")
+    st.markdown('<div class="sec">Monthly Revenue</div>', unsafe_allow_html=True)
     if not monthly.empty:
         fig = px.bar(monthly, x="month", y="revenue", color_discrete_sequence=["#7F77DD"],
                      labels={"month": "", "revenue": "₱"})
-        fig.update_layout(height=320, margin=dict(t=10,b=10,l=0,r=0),
+        fig.update_layout(height=320, margin=dict(t=10, b=10, l=0, r=0),
                           plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                           xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
                           font=dict(size=12), showlegend=False)
@@ -115,15 +123,15 @@ with cl:
         st.info("No completed bookings yet.")
 
 with cr:
-    section_title("Booking Status")
+    st.markdown('<div class="sec">Booking Status</div>', unsafe_allow_html=True)
     status_df = pd.DataFrame([
         {"Status": "Completed", "Count": len(completed)},
-        {"Status": "Pending",   "Count": len(pending)},
-        {"Status": "Cancelled", "Count": len(cancelled)},
+        {"Status": "Pending", "Count": len(pending)},
+        {"Status": "Cancelled", "Count": len([b for b in bookings if b.status == "cancelled"])},
     ])
     fig2 = px.pie(status_df, names="Status", values="Count", hole=0.58,
                   color_discrete_sequence=["#7F77DD", "#EF9F27", "#E24B4A"])
-    fig2.update_layout(height=320, margin=dict(t=10,b=10,l=0,r=0),
+    fig2.update_layout(height=320, margin=dict(t=10, b=10, l=0, r=0),
                        paper_bgcolor="rgba(0,0,0,0)",
                        legend=dict(orientation="h", y=-0.15, font=dict(size=12)))
     fig2.update_traces(textinfo="percent", textfont_size=11)
@@ -132,28 +140,32 @@ with cr:
 st.divider()
 
 # ── Forecast ───────────────────────────────────────────────────────────────────
-section_title("30-Day Forecast")
+st.markdown('<div class="sec">30-Day Forecast</div>', unsafe_allow_html=True)
 result = predict_revenue(bookings, days_ahead=30)
 
 if result["enough_data"]:
     s = result["summary"]
     f1, f2, f3 = st.columns(3)
     for col, label, val in [
-        (f1, "Forecast Total",      f"₱{s['total_forecast']:,.2f}"),
+        (f1, "Forecast Total", f"₱{s['total_forecast']:,.2f}"),
         (f2, "Predicted Daily Avg", f"₱{s['forecast_daily_avg']:,.2f}"),
-        (f3, "Growth vs History",   f"{s['growth_pct']:+.1f}%"),
+        (f3, "Growth vs History", f"{s['growth_pct']:+.1f}%"),
     ]:
-        col.markdown(f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value" style="font-size:1.3rem;">{val}</div></div>', unsafe_allow_html=True)
+        col.markdown(
+            f'<div class="kpi"><div class="kpi-label">{label}</div><div class="kpi-value" style="font-size:1.3rem;">{val}</div></div>',
+            unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    hist = result["historical"].copy(); hist["date"] = pd.to_datetime(hist["date"])
-    fore = result["forecast"].copy();   fore["date"] = pd.to_datetime(fore["date"])
+    hist = result["historical"].copy();
+    hist["date"] = pd.to_datetime(hist["date"])
+    fore = result["forecast"].copy();
+    fore["date"] = pd.to_datetime(fore["date"])
     fig3 = go.Figure()
     fig3.add_trace(go.Scatter(x=hist["date"], y=hist["revenue"], name="Historical",
                               line=dict(color="#7F77DD", width=2)))
     fig3.add_trace(go.Scatter(x=fore["date"], y=fore["predicted_revenue"], name="Forecast",
                               line=dict(color="#EF9F27", width=2, dash="dash")))
-    fig3.update_layout(height=280, margin=dict(t=10,b=10,l=0,r=0),
+    fig3.update_layout(height=280, margin=dict(t=10, b=10, l=0, r=0),
                        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                        legend=dict(orientation="h", y=1.2, font=dict(size=12)),
                        xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#f5f5f5"),
@@ -165,17 +177,17 @@ else:
 
 st.divider()
 
-# ── Recent Bookings ────────────────────────────────────────────────────────────
-section_title("Recent Bookings")
+# ── Recent Bookings ─────────────────────────────────────────────────────────────
+st.markdown('<div class="sec">Recent Bookings</div>', unsafe_allow_html=True)
 if bookings:
     recent = sorted(bookings, key=lambda b: b.booking_date, reverse=True)[:8]
     rows = [{
-        "Date":     b.booking_date.strftime("%b %d, %Y"),
+        "Date": b.booking_date.strftime("%b %d, %Y"),
         "Customer": b.customer_name,
-        "Service":  b.product.name if b.product else "—",
-        "Amount":   f"₱{b.amount:,.2f}",
-        "Status":   b.status.capitalize(),
-        "DP Paid":  "✅ Yes" if (b.downpayment_paid or False) else ("—" if b.downpayment is None else "⏳ Pending"),
+        "Service": b.product.name if b.product else "—",
+        "Amount": f"₱{collected(b):,.2f}",
+        "Status": b.status.capitalize(),
+
     } for b in recent]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 else:
