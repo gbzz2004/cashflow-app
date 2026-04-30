@@ -54,7 +54,7 @@ if not user:
     st.stop()
 
 st.markdown('<div style="border-left:4px solid #EF9F27;padding-left:16px;margin-bottom:4px;"><span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.12em;color:#EF9F27;font-weight:600;">Machine Learning</span><h2 style="margin:4px 0 0;font-family:Playfair Display,serif;">Revenue Prediction</h2></div>', unsafe_allow_html=True)
-st.caption("Polynomial regression on your historical booking data, powered by scikit-learn.")
+st.caption("Time series forecasting on your historical booking data, powered by Prophet.")
 st.divider()
 
 db = SessionLocal()
@@ -174,15 +174,34 @@ with st.expander("📋 Full forecast table"):
     st.dataframe(display, use_container_width=True, hide_index=True)
 
 with st.expander("ℹ️ How the prediction works"):
-    st.markdown(f"""
-**Model:** Polynomial Regression (degree 2) — scikit-learn
+    model_used = result.get("model_used", "prophet")
+    if model_used == "prophet":
+        st.markdown(f"""
+**Model:** Prophet (Meta) — Time Series Forecasting
 
 **Training data:** {s['days_of_history']} days of completed booking history
 
+1. Completed bookings are grouped by day into a daily revenue time series
+2. Prophet decomposes the series into trend, weekly seasonality, and yearly seasonality components
+3. It automatically detects patterns — e.g. busier days of the week or peak months
+4. The model extrapolates {days_ahead} days forward; negative values are clipped to ₱0
+5. An 80% confidence interval is computed to reflect forecast uncertainty
+
+**Why Prophet is better:** Unlike simple curve fitting, Prophet handles irregular booking patterns, missing days, and seasonal effects without manual tuning.
+
+**Note:** Accuracy improves with more historical data. At least 30–90 days of bookings is recommended for reliable seasonality detection.
+""")
+    else:
+        st.markdown(f"""
+**Model:** Polynomial Regression (degree 2) — scikit-learn *(fallback)*
+
+**Training data:** {s['days_of_history']} days of completed booking history
+
+Prophet was unavailable so a fallback model was used:
 1. Completed bookings are grouped by day into a daily revenue time series
 2. Each day is encoded as a number so the model can learn the trend
 3. A polynomial curve is fitted — capturing growth or decline patterns
 4. The curve is extrapolated {days_ahead} days forward; negative values are clipped to ₱0
 
-**Note:** This model assumes your current trend continues. One-time spikes or seasonal events won't be predicted unless they've happened before in your history.
+**Note:** Install Prophet (`pip install prophet`) for significantly better predictions.
 """)
