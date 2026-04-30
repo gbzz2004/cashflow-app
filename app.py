@@ -17,6 +17,7 @@ init_db()
 login_page      = st.Page("pages/login.py",           title="Admin Login",  icon="🏢")
 customer_portal = st.Page("pages/customer_portal.py", title="My Bookings",  icon="👤", default=True)
 booking_page    = st.Page("pages/0_Book_Now.py",      title="↳ Book Now",   icon="🗓️")
+my_account      = st.Page("pages/My_Account.py",      title="My Account",   icon="⚙️")
 dashboard       = st.Page("pages/1_Dashboard.py",     title="Dashboard",    icon="📊")
 bookings        = st.Page("pages/2_Bookings.py",      title="Bookings",     icon="📅")
 products        = st.Page("pages/3_Products.py",      title="Products",     icon="🛍️")
@@ -46,7 +47,7 @@ if st.session_state.get("user"):
 elif st.session_state.get("customer"):
     pg = st.navigation(
         {
-            "My Account": [customer_portal, booking_page],
+            "My Account": [customer_portal, booking_page, my_account],
         },
         expanded=True
     )
