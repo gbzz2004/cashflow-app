@@ -7,3 +7,4 @@ python-dotenv
 bcrypt
 psycopg2-binary
 prophet
+qrcode[pil]
