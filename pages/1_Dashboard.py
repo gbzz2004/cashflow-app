@@ -35,8 +35,15 @@ h1,h2,h3 { font-family: 'Playfair Display', serif !important; }
 }
 .kpi-label { font-size:0.75rem; color:#7F77DD; text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
 .kpi-value { font-size:1.5rem; font-weight:700; color: var(--text-color, #1a1a2e); margin:4px 0 2px; }
-.sec { font-family:'Playfair Display',serif; font-size:1.05rem; font-weight:600;
-       color: var(--text-color, #1a1a2e); margin-bottom:12px; }
+.sec-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid #7F77DD;
+    color: inherit;
+}
 
 /* Page header accent bar */
 .page-header-label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; }
@@ -57,6 +64,11 @@ user = require_login()
 if not user:
     st.warning("Please log in first.")
     st.stop()
+
+
+def section_title(text):
+    st.markdown(f'<p class="sec-title">{text}</p>', unsafe_allow_html=True)
+
 
 db = SessionLocal()
 bookings = db.query(Booking).options(joinedload(Booking.product)).filter(Booking.owner_id == user["id"]).all()
@@ -109,7 +121,7 @@ monthly = get_monthly_summary(bookings)
 cl, cr = st.columns([3, 2])
 
 with cl:
-    st.markdown('<div class="sec">Monthly Revenue</div>', unsafe_allow_html=True)
+    section_title("Monthly Revenue")
     if not monthly.empty:
         fig = px.bar(monthly, x="month", y="revenue", color_discrete_sequence=["#7F77DD"],
                      labels={"month": "", "revenue": "₱"})
@@ -123,7 +135,7 @@ with cl:
         st.info("No completed bookings yet.")
 
 with cr:
-    st.markdown('<div class="sec">Booking Status</div>', unsafe_allow_html=True)
+    section_title("Booking Status")
     status_df = pd.DataFrame([
         {"Status": "Completed", "Count": len(completed)},
         {"Status": "Pending", "Count": len(pending)},
@@ -140,7 +152,7 @@ with cr:
 st.divider()
 
 # ── Forecast ───────────────────────────────────────────────────────────────────
-st.markdown('<div class="sec">30-Day Forecast</div>', unsafe_allow_html=True)
+section_title("30-Day Forecast")
 result = predict_revenue(bookings, days_ahead=30)
 
 if result["enough_data"]:
@@ -178,7 +190,7 @@ else:
 st.divider()
 
 # ── Recent Bookings ─────────────────────────────────────────────────────────────
-st.markdown('<div class="sec">Recent Bookings</div>', unsafe_allow_html=True)
+section_title("Recent Bookings")
 if bookings:
     recent = sorted(bookings, key=lambda b: b.booking_date, reverse=True)[:8]
     rows = [{
