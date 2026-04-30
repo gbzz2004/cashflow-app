@@ -103,14 +103,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(f"👤 **{customer['full_name']}**")
     st.caption(f"@{customer['username']}")
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("✏️ Edit Name", use_container_width=True, key="sidebar_edit_name_btn"):
-        st.session_state["show_edit_name"] = True
-        st.rerun()
-    if st.button("🔒 Change Password", use_container_width=True, key="sidebar_edit_pw_btn"):
-        st.session_state["show_edit_password"] = True
-        st.rerun()
-    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🚪 Sign Out", use_container_width=True, key="customer_signout_btn"):
         st.session_state["confirm_customer_logout"] = True
         st.rerun()
