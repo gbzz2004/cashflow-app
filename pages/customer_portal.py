@@ -10,8 +10,8 @@ import qrcode
 from io import BytesIO
 
 # ── ⚙️ CONFIG ─────────────────────────────────────────────────────────────────
-GCASH_NUMBER = "09755434084"
-GCASH_NAME   = "BRAINARD GABRIEL IZON"
+GCASH_NUMBER = "09XX-XXX-XXXX"
+GCASH_NAME   = "Your Name Here"
 
 # ── Styles (matching admin UI) ────────────────────────────────────────────────
 st.markdown('''<style>
@@ -103,6 +103,14 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(f"👤 **{customer['full_name']}**")
     st.caption(f"@{customer['username']}")
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("✏️ Edit Name", use_container_width=True, key="sidebar_edit_name_btn"):
+        st.session_state["show_edit_name"] = True
+        st.rerun()
+    if st.button("🔒 Change Password", use_container_width=True, key="sidebar_edit_pw_btn"):
+        st.session_state["show_edit_password"] = True
+        st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🚪 Sign Out", use_container_width=True, key="customer_signout_btn"):
         st.session_state["confirm_customer_logout"] = True
         st.rerun()
@@ -120,6 +128,70 @@ def logout_dialog():
     with col2:
         if st.button("❌ Cancel", use_container_width=True):
             st.session_state["confirm_customer_logout"] = False
+            st.rerun()
+
+
+@st.dialog("✏️ Edit Full Name")
+def edit_name_dialog():
+    st.caption("Enter your new full name below.")
+    new_name = st.text_input("New Full Name", value=st.session_state["customer"]["full_name"], key="dialog_new_name")
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 Save Changes", use_container_width=True, type="primary"):
+            if not new_name.strip():
+                st.error("❌ Name cannot be empty.")
+            elif new_name.strip() == st.session_state["customer"]["full_name"]:
+                st.warning("⚠️ That's already your current name.")
+            else:
+                db = SessionLocal()
+                row = db.query(User).filter(User.id == st.session_state["customer"]["id"]).first()
+                if row:
+                    row.business_name = new_name.strip()
+                    db.commit()
+                    st.session_state["customer"]["full_name"] = new_name.strip()
+                db.close()
+                st.session_state["show_edit_name"] = False
+                st.session_state["profile_success"] = f"Name updated to '{new_name.strip()}'."
+                st.rerun()
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
+            st.session_state["show_edit_name"] = False
+            st.rerun()
+
+
+@st.dialog("🔒 Change Password")
+def edit_password_dialog():
+    st.caption("Enter your current password to confirm, then set a new one.")
+    current_pw = st.text_input("Current Password", type="password", key="dialog_cur_pw")
+    new_pw     = st.text_input("New Password", type="password", placeholder="Min. 6 characters", key="dialog_new_pw")
+    confirm_pw = st.text_input("Confirm New Password", type="password", key="dialog_conf_pw")
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔒 Update Password", use_container_width=True, type="primary"):
+            if not all([current_pw, new_pw, confirm_pw]):
+                st.error("❌ All fields are required.")
+            elif len(new_pw) < 6:
+                st.error("❌ New password must be at least 6 characters.")
+            elif new_pw != confirm_pw:
+                st.error("❌ Passwords do not match.")
+            else:
+                db  = SessionLocal()
+                row = db.query(User).filter(User.id == st.session_state["customer"]["id"]).first()
+                if not row or not verify_password(current_pw, row.hashed_password):
+                    st.error("❌ Current password is incorrect.")
+                    db.close()
+                else:
+                    row.hashed_password = hash_password(new_pw)
+                    db.commit()
+                    db.close()
+                    st.session_state["show_edit_password"] = False
+                    st.session_state["profile_success"] = "Password updated successfully."
+                    st.rerun()
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
+            st.session_state["show_edit_password"] = False
             st.rerun()
 
 
@@ -227,6 +299,12 @@ if st.session_state.get("confirm_customer_logout"):
     st.session_state["confirm_customer_logout"] = False
     logout_dialog()
 
+if st.session_state.get("show_edit_name"):
+    edit_name_dialog()
+
+if st.session_state.get("show_edit_password"):
+    edit_password_dialog()
+
 if st.session_state.get("cancel_booking_id"):
     cancel_booking_dialog()
 
@@ -262,7 +340,7 @@ if st.session_state.get("profile_success"):
     st.success("✅ " + st.session_state.pop("profile_success"))
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs(["📋 My Bookings", "🔁 Rebook", "✅ Confirmation", "⚙️ Edit Profile"])
+tab1, tab2, tab3 = st.tabs(["📋 My Bookings", "🔁 Rebook", "✅ Confirmation"])
 
 # ── Tab 1: My Bookings ────────────────────────────────────────────────────────
 with tab1:
@@ -405,70 +483,3 @@ with tab3:
         st.caption("Check the **My Bookings** tab after approval to see your downpayment and remaining balance.")
     else:
         st.info("No recent booking confirmation. Book or rebook a service first!")
-
-# ── Tab 4: Edit Profile ───────────────────────────────────────────────────────
-with tab4:
-    st.markdown(
-        '<div style="border-left:4px solid #7F77DD;padding-left:12px;margin-bottom:20px;">'
-        '<strong style="font-size:1rem;">Account Settings</strong></div>',
-        unsafe_allow_html=True
-    )
-
-    # ── Change Full Name ──────────────────────────────────────────────────────
-    with st.expander("✏️ Change Full Name", expanded=False):
-        with st.form("change_name_form"):
-            new_name = st.text_input(
-                "New Full Name",
-                value=customer["full_name"],
-                placeholder="Enter your new name"
-            )
-            if st.form_submit_button("💾 Save Name", use_container_width=True):
-                if not new_name.strip():
-                    st.error("❌ Name cannot be empty.")
-                elif new_name.strip() == customer["full_name"]:
-                    st.warning("⚠️ That's already your current name.")
-                else:
-                    db = SessionLocal()
-                    row = db.query(User).filter(User.id == customer["id"]).first()
-                    if row:
-                        row.business_name = new_name.strip()
-                        db.commit()
-                        st.session_state["customer"]["full_name"] = new_name.strip()
-                    db.close()
-                    st.session_state["profile_success"] = f"Full name updated to '{new_name.strip()}'."
-                    st.rerun()
-
-    # ── Change Password ───────────────────────────────────────────────────────
-    with st.expander("🔒 Change Password", expanded=False):
-        with st.form("change_password_form"):
-            current_pw = st.text_input(
-                "Current Password", type="password",
-                placeholder="Enter your current password"
-            )
-            new_pw     = st.text_input(
-                "New Password", type="password",
-                placeholder="Min. 6 characters"
-            )
-            confirm_pw = st.text_input(
-                "Confirm New Password", type="password",
-                placeholder="Repeat new password"
-            )
-            if st.form_submit_button("🔒 Update Password", use_container_width=True):
-                if not all([current_pw, new_pw, confirm_pw]):
-                    st.error("❌ All fields are required.")
-                elif len(new_pw) < 6:
-                    st.error("❌ New password must be at least 6 characters.")
-                elif new_pw != confirm_pw:
-                    st.error("❌ New passwords do not match.")
-                else:
-                    db  = SessionLocal()
-                    row = db.query(User).filter(User.id == customer["id"]).first()
-                    if not row or not verify_password(current_pw, row.hashed_password):
-                        st.error("❌ Current password is incorrect.")
-                        db.close()
-                    else:
-                        row.hashed_password = hash_password(new_pw)
-                        db.commit()
-                        db.close()
-                        st.session_state["profile_success"] = "Password updated successfully."
-                        st.rerun()
