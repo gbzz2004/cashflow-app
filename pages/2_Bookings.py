@@ -200,6 +200,36 @@ def mark_paid_dialog(booking_id: int, customer_name: str, downpayment: float):
             st.session_state.pop("pending_mark_paid_id", None)
             st.rerun()
 
+# ── Team assignment confirmation dialog ──────────────────────────────────────
+@st.dialog("Confirm Team Assignment")
+def assign_team_dialog(booking_id: int, customer_name: str, team_name: str, team_id: int, booking_date):
+    st.markdown(f"Assign **{team_name}** to this booking?")
+    st.markdown(f"""
+    <div style="border:1px solid #f5f5f5;border-radius:10px;padding:14px 18px;margin:10px 0;">
+        <div style="font-size:0.9rem;line-height:2;">
+            👤 <strong>Customer:</strong> {customer_name}<br>
+            📅 <strong>Date:</strong> {booking_date.strftime('%B %d, %Y')}<br>
+            🎬 <strong>Team:</strong> {team_name}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Confirm", use_container_width=True, type="primary"):
+            db2 = SessionLocal()
+            row = db2.query(Booking).filter(Booking.id == booking_id).first()
+            if row:
+                row.team_id = team_id
+                db2.commit()
+            db2.close()
+            st.session_state.pop("pending_team_assign", None)
+            st.rerun()
+    with col2:
+        if st.button("← Go Back", use_container_width=True):
+            st.session_state.pop("pending_team_assign", None)
+            st.rerun()
+
 # ── Trigger dialogs if queued ─────────────────────────────────────────────────
 if "pending_approval_id" in st.session_state:
     downpayment_dialog(
@@ -217,6 +247,10 @@ if "pending_cancel_id" in st.session_state:
 if "pending_mark_paid_id" in st.session_state:
     info = st.session_state["pending_mark_paid_id"]
     mark_paid_dialog(info["id"], info["customer_name"], info["downpayment"])
+
+if "pending_team_assign" in st.session_state:
+    info = st.session_state["pending_team_assign"]
+    assign_team_dialog(info["id"], info["customer_name"], info["team_name"], info["team_id"], info["booking_date"])
 
 db = SessionLocal()
 products = db.query(Product).filter(Product.owner_id == user["id"]).all()
@@ -407,12 +441,13 @@ else:
                                 key=f"team_{b.id}"
                             )
                             if selected_team != "-- Select Team --":
-                                db4 = SessionLocal()
-                                row = db4.query(Booking).filter(Booking.id == b.id).first()
-                                if row:
-                                    row.team_id = available_teams[selected_team]
-                                    db4.commit()
-                                db4.close()
+                                st.session_state["pending_team_assign"] = {
+                                    "id":           b.id,
+                                    "customer_name": b.customer_name,
+                                    "team_name":    selected_team,
+                                    "team_id":      available_teams[selected_team],
+                                    "booking_date": b.booking_date,
+                                }
                                 st.rerun()
                 else:
                     st.caption("⚠️ No teams yet. Add teams in the Teams page.")
